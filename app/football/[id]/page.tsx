@@ -1,8 +1,5 @@
 import Link from 'next/link';
-import { FootballMatch } from '@/types';
-import matchesData from '@/data/football.json';
-
-const matches = matchesData as unknown as FootballMatch[];
+import { getFootballMatchById } from '@/lib/football-api';
 
 const eventIcon: Record<string, string> = {
   goal: 'sports_soccer',
@@ -38,15 +35,25 @@ const abbrMap: Record<string, string> = {
   'West Ham': 'WHU',
 };
 
-const getAbbr = (name: string) =>
-  abbrMap[name] ?? name.slice(0, 3).toUpperCase();
+const getAbbr = (name: string) => {
+  if (abbrMap[name]) return abbrMap[name];
+  const words = name.split(' ');
+  if (words.length > 1) {
+    return words
+      .slice(0, 3)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase();
+  }
+  return name.slice(0, 3).toUpperCase();
+};
 
-export default function MatchDetailPage({
+export default async function MatchDetailPage({
   params,
 }: {
   params: { id: string };
 }) {
-  const match = matches.find((m) => m.id === params.id);
+  const match = await getFootballMatchById(params.id);
 
   if (!match) {
     return (
@@ -59,9 +66,11 @@ export default function MatchDetailPage({
             ← Back to matches
           </Link>
           <div className="rounded-lg bg-surface-container-low border border-surface-container-highest p-6 text-center">
-            <h1 className="mb-1 text-xl font-bold text-on-surface">Match not found</h1>
+            <h1 className="mb-1 text-xl font-bold text-on-surface">
+              Match not found
+            </h1>
             <p className="text-sm text-on-surface-variant">
-              There is no match with ID &quot;{params.id}&quot;.
+              This match may have finished or is no longer available.
             </p>
           </div>
         </div>
@@ -107,28 +116,24 @@ export default function MatchDetailPage({
                   className="flex items-center gap-space-xs px-space-md py-1 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors font-label-md text-label-md"
                   type="button"
                 >
-                  <span className="material-symbols-outlined text-[18px]">push_pin</span>
+                  <span className="material-symbols-outlined text-[18px]">
+                    push_pin
+                  </span>
                   <span className="hidden sm:inline">Pin Match</span>
-                </button>
-                <button
-                  className="flex items-center gap-space-xs px-space-md py-1 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors font-label-md text-label-md"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[18px]">notifications_active</span>
-                  <span className="hidden sm:inline">Alerts On</span>
                 </button>
               </div>
             </div>
 
-            <section className="relative overflow-hidden rounded-xl bg-surface-container-low border border-surface-container-highest/40 shadow-xl p-space-md md:p-space-xl">
+            <section className="relative overflow-hidden rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 shadow-xl p-space-md md:p-space-xl">
               <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-36 bg-primary-container/10 blur-3xl pointer-events-none rounded-full"></div>
 
               <div className="relative z-10 flex items-center justify-between pb-space-md mb-space-md">
                 <div className="flex items-center gap-space-xs text-on-surface-variant font-label-md text-label-md uppercase tracking-widest">
                   <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                  <span>{match.league}</span>
+                  <span className="truncate">{match.league}</span>
                 </div>
-                <div className="flex items-center gap-space-xs bg-error-container/20 px-space-md py-1 rounded-full">
+
+                <div className="flex items-center gap-space-xs bg-error-container/20 px-space-md py-1 rounded-full shrink-0">
                   {isLive && (
                     <>
                       <span className="w-2 h-2 rounded-full bg-error animate-ping"></span>
@@ -165,8 +170,10 @@ export default function MatchDetailPage({
                       </span>
                     </div>
                     <h1
-                      className={`font-headline-lg text-headline-lg uppercase tracking-tight mt-0.5 ${
-                        homeWon ? 'text-primary font-extrabold' : 'text-on-surface font-extrabold'
+                      className={`font-headline-lg text-headline-lg uppercase tracking-tight mt-0.5 truncate ${
+                        homeWon
+                          ? 'text-primary font-extrabold'
+                          : 'text-on-surface font-extrabold'
                       }`}
                     >
                       {match.homeTeam.name}
@@ -186,7 +193,9 @@ export default function MatchDetailPage({
                 <div className="md:col-span-4 flex flex-col items-center justify-center px-space-sm py-2">
                   <div className="flex items-baseline gap-space-md font-headline-xl text-headline-xl text-on-surface font-extrabold tracking-normal">
                     <span className="tabular-nums">{match.homeTeam.score}</span>
-                    <span className="text-outline text-headline-lg font-bold">–</span>
+                    <span className="text-outline text-headline-lg font-bold">
+                      –
+                    </span>
                     <span className="tabular-nums">{match.awayTeam.score}</span>
                   </div>
                   {isLive && (
@@ -207,7 +216,9 @@ export default function MatchDetailPage({
                   )}
                   {isFinished && (
                     <div className="mt-space-xs inline-flex items-center gap-space-xs px-space-md py-1 rounded-full bg-surface-container font-label-md text-label-md text-on-surface-variant tracking-wider uppercase font-bold">
-                      <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                      <span className="material-symbols-outlined text-[16px]">
+                        check_circle
+                      </span>
                       Full Time
                     </div>
                   )}
@@ -230,8 +241,10 @@ export default function MatchDetailPage({
                       </span>
                     </div>
                     <h2
-                      className={`font-headline-lg text-headline-lg uppercase tracking-tight mt-0.5 ${
-                        awayWon ? 'text-primary font-extrabold' : 'text-on-surface font-extrabold'
+                      className={`font-headline-lg text-headline-lg uppercase tracking-tight mt-0.5 truncate ${
+                        awayWon
+                          ? 'text-primary font-extrabold'
+                          : 'text-on-surface font-extrabold'
                       }`}
                     >
                       {match.awayTeam.name}
@@ -241,219 +254,80 @@ export default function MatchDetailPage({
               </div>
             </section>
 
-            {isLive && (
-              <section className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-space-md flex flex-col md:flex-row items-stretch md:items-center justify-between gap-space-md shadow-md">
-                <div className="flex items-center gap-space-md min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-primary-container/20 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-primary text-[22px]">
-                      vital_signs
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-space-xs">
-                      <span className="font-label-sm text-label-sm text-primary uppercase font-bold tracking-wider">
-                        In-Play Pulse ({match.minute}&apos;)
-                      </span>
-                    </div>
-                    <p className="font-body-md text-body-md text-on-surface truncate">
-                      {match.league} • {match.homeTeam.name} {match.homeTeam.score} - {match.awayTeam.score} {match.awayTeam.name}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-space-xs shrink-0">
-                  <button
-                    className="flex items-center gap-space-xs px-space-md py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors font-label-md text-label-md"
-                    type="button"
-                  >
-                    <span className="material-symbols-outlined text-[18px] text-primary">
-                      headphones
-                    </span>
-                    <span>Live Audio</span>
-                  </button>
-                </div>
-              </section>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
-              <section className="lg:col-span-7 flex flex-col gap-space-md rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-space-md md:p-space-lg shadow-lg">
-                <div className="flex items-center justify-between pb-space-sm">
-                  <div className="flex items-center gap-space-xs">
-                    <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
-                    <h2 className="font-headline-md text-headline-md text-on-surface font-extrabold uppercase tracking-tight">
-                      Match Statistics
-                    </h2>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between px-space-sm py-1 bg-surface-container/60 rounded-lg text-on-surface font-label-md text-label-md uppercase">
-                  <div className="flex items-center gap-space-xs text-primary font-bold">
-                    <span className="w-3 h-3 rounded-sm bg-primary inline-block"></span>
-                    <span>{match.homeTeam.name}</span>
-                  </div>
-                  <span className="text-on-surface-variant text-[11px] font-normal tracking-wider">
-                    Team Comparison
+            {sortedEvents.length > 0 && (
+              <section className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-space-md md:p-space-lg shadow-lg">
+                <div className="flex items-center gap-space-xs pb-space-sm mb-space-sm border-b border-surface-container-highest/40">
+                  <span className="material-symbols-outlined text-[20px] text-primary">
+                    history
                   </span>
-                  <div className="flex items-center gap-space-xs text-secondary font-bold">
-                    <span>{match.awayTeam.name}</span>
-                    <span className="w-3 h-3 rounded-sm bg-secondary inline-block"></span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-space-md mt-space-xs">
-                  <div className="p-space-sm rounded-lg hover:bg-surface-container/40 transition-colors">
-                    <div className="flex justify-between items-center mb-1 text-on-surface">
-                      <span className="font-headline-md text-[18px] font-extrabold tabular-nums text-primary">
-                        58%
-                      </span>
-                      <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-                        Ball Possession
-                      </span>
-                      <span className="font-headline-md text-[18px] font-extrabold tabular-nums text-secondary">
-                        42%
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden flex">
-                      <div className="h-full bg-primary" style={{ width: '58%' }}></div>
-                      <div className="h-full bg-secondary" style={{ width: '42%' }}></div>
-                    </div>
-                  </div>
-
-                  <div className="p-space-sm rounded-lg hover:bg-surface-container/40 transition-colors">
-                    <div className="flex justify-between items-center mb-1 text-on-surface">
-                      <span className="font-headline-md text-[18px] font-extrabold tabular-nums text-primary">
-                        12
-                      </span>
-                      <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-                        Total Shots
-                      </span>
-                      <span className="font-headline-md text-[18px] font-extrabold tabular-nums text-secondary">
-                        7
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden flex">
-                      <div className="h-full bg-primary" style={{ width: '63%' }}></div>
-                      <div className="h-full bg-secondary" style={{ width: '37%' }}></div>
-                    </div>
-                  </div>
-
-                  <div className="p-space-sm rounded-lg hover:bg-surface-container/40 transition-colors">
-                    <div className="flex justify-between items-center mb-1 text-on-surface">
-                      <span className="font-headline-md text-[18px] font-extrabold tabular-nums text-primary">
-                        6
-                      </span>
-                      <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-                        Shots on Target
-                      </span>
-                      <span className="font-headline-md text-[18px] font-extrabold tabular-nums text-secondary">
-                        3
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden flex">
-                      <div className="h-full bg-primary" style={{ width: '66%' }}></div>
-                      <div className="h-full bg-secondary" style={{ width: '34%' }}></div>
-                    </div>
-                  </div>
-
-                  <div className="p-space-sm rounded-lg hover:bg-surface-container/40 transition-colors">
-                    <div className="flex justify-between items-center mb-1 text-on-surface">
-                      <span className="font-headline-md text-[18px] font-extrabold tabular-nums text-primary">
-                        8
-                      </span>
-                      <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-                        Corner Kicks
-                      </span>
-                      <span className="font-headline-md text-[18px] font-extrabold tabular-nums text-secondary">
-                        3
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden flex">
-                      <div className="h-full bg-primary" style={{ width: '72%' }}></div>
-                      <div className="h-full bg-secondary" style={{ width: '28%' }}></div>
-                    </div>
-                  </div>
-
-                  <div className="p-space-sm rounded-lg hover:bg-surface-container/40 transition-colors">
-                    <div className="flex justify-between items-center mb-1 text-on-surface">
-                      <span className="font-headline-md text-[18px] font-extrabold tabular-nums text-primary">
-                        86%
-                      </span>
-                      <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-                        Pass Accuracy
-                      </span>
-                      <span className="font-headline-md text-[18px] font-extrabold tabular-nums text-secondary">
-                        79%
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden flex">
-                      <div className="h-full bg-primary" style={{ width: '52%' }}></div>
-                      <div className="h-full bg-secondary" style={{ width: '48%' }}></div>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="lg:col-span-5 flex flex-col gap-space-md rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-space-md md:p-space-lg shadow-lg">
-                <div className="flex items-center gap-space-xs pb-space-sm">
-                  <span className="material-symbols-outlined text-[20px] text-primary">history</span>
                   <h2 className="font-headline-md text-headline-md text-on-surface font-extrabold uppercase tracking-tight">
                     Match Events
                   </h2>
                 </div>
 
-                {sortedEvents.length === 0 ? (
-                  <p className="text-sm text-on-surface-variant">No events yet.</p>
-                ) : (
-                  <div className="relative flex flex-col gap-space-xs mt-space-xs">
-                    <div className="absolute left-[26px] top-4 bottom-4 w-0.5 bg-surface-container"></div>
-                    {sortedEvents.map((event, idx) => {
-                      const icon = eventIcon[event.type] ?? 'circle';
-                      const label = eventTypeLabel[event.type] ?? event.type;
-                      const color = eventColor[event.type] ?? 'text-on-surface';
-                      const isGoal = event.type === 'goal';
-                      const eventTeamName =
-                        event.team === 'home'
-                          ? match.homeTeam.name
-                          : match.awayTeam.name;
+                <div className="relative flex flex-col gap-space-xs mt-space-xs">
+                  <div className="absolute left-[26px] top-4 bottom-4 w-0.5 bg-surface-container"></div>
+                  {sortedEvents.map((event, idx) => {
+                    const icon = eventIcon[event.type] ?? 'circle';
+                    const label = eventTypeLabel[event.type] ?? event.type;
+                    const color = eventColor[event.type] ?? 'text-on-surface';
+                    const isGoal = event.type === 'goal';
+                    const eventTeamName =
+                      event.team === 'home'
+                        ? match.homeTeam.name
+                        : match.awayTeam.name;
 
-                      return (
+                    return (
+                      <div
+                        key={idx}
+                        className="relative flex items-start gap-space-md p-space-sm rounded-lg hover:bg-surface-container/50 transition-colors"
+                      >
                         <div
-                          key={idx}
-                          className="relative flex items-start gap-space-md p-space-sm rounded-lg hover:bg-surface-container/50 transition-colors"
+                          className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10 font-label-md text-label-md font-black tabular-nums shadow-sm ${
+                            isGoal
+                              ? event.team === 'home'
+                                ? 'bg-primary/20 text-primary'
+                                : 'bg-secondary/20 text-secondary'
+                              : 'bg-surface-container text-on-surface-variant'
+                          }`}
                         >
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10 font-label-md text-label-md font-black tabular-nums shadow-sm ${
-                              isGoal
-                                ? event.team === 'home'
-                                  ? 'bg-primary/20 text-primary'
-                                  : 'bg-secondary/20 text-secondary'
-                                : 'bg-surface-container text-on-surface-variant'
-                            }`}
-                          >
-                            {event.minute}&apos;
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-space-xs">
-                              <span className={`material-symbols-outlined text-[18px] ${color}`}>
-                                {icon}
-                              </span>
-                              <span className="font-headline-md text-[15px] font-bold text-on-surface">
-                                {event.player}
-                              </span>
-                            </div>
-                            <p className="text-body-sm font-body-sm text-on-surface-variant mt-0.5">
-                              {label} · {eventTeamName}
-                            </p>
-                          </div>
-                          <span className="text-on-surface-variant font-label-sm text-label-sm uppercase">
-                            {event.team === 'home' ? homeAbbr : awayAbbr}
-                          </span>
+                          {event.minute}&apos;
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-space-xs">
+                            <span
+                              className={`material-symbols-outlined text-[18px] ${color}`}
+                            >
+                              {icon}
+                            </span>
+                            <span className="font-headline-md text-[15px] font-bold text-on-surface truncate">
+                              {event.player}
+                            </span>
+                          </div>
+                          <p className="text-body-sm font-body-sm text-on-surface-variant mt-0.5 truncate">
+                            {label} · {eventTeamName}
+                          </p>
+                        </div>
+                        <span className="text-on-surface-variant font-label-sm text-label-sm uppercase shrink-0">
+                          {event.team === 'home' ? homeAbbr : awayAbbr}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </section>
-            </div>
+            )}
+
+            {sortedEvents.length === 0 && (
+              <section className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-12 text-center">
+                <span className="material-symbols-outlined text-[48px] text-on-surface-variant mb-2">
+                  event_busy
+                </span>
+                <p className="text-body-lg text-on-surface-variant">
+                  No events yet. Check back soon.
+                </p>
+              </section>
+            )}
           </div>
         </div>
       </main>
