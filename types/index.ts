@@ -11,7 +11,7 @@ export interface FootballMatch {
   homeTeam: { name: string; score: number };
   awayTeam: { name: string; score: number };
   minute?: number;
-  events: { minute: number; type: string; player: string }[];
+  events: { minute: number; type: string; player: string; team: 'home' | 'away' }[];
 }
 
 export interface CricketMatch {
@@ -45,4 +45,3 @@ export interface F1Race {
   totalLaps: number;
   drivers: F1Driver[];
 }
-

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { F1Race } from '@/types';
 import LiveBadge from '../shared/LiveBadge';
 
@@ -5,11 +6,16 @@ const tireColors: Record<string, string> = {
   soft: 'bg-red-500',
   medium: 'bg-yellow-400',
   hard: 'bg-gray-200',
+  inter: 'bg-green-500',
+  wet: 'bg-blue-500',
 };
 
 export default function F1RaceCard({ race }: { race: F1Race }) {
   return (
-    <div className="rounded-lg bg-slate-900 border border-slate-800 p-4">
+    <Link
+      href={`/f1/${race.id}`}
+      className="block rounded-lg bg-slate-900 border border-slate-800 p-4 hover:bg-slate-800/50 transition-colors"
+    >
       {/* Header */}
       <div className="flex justify-between items-center mb-3">
         <h2 className="font-medium text-white">{race.raceName}</h2>
@@ -78,6 +84,6 @@ export default function F1RaceCard({ race }: { race: F1Race }) {
       ) : (
         <p className="text-sm text-gray-400">Grid not available yet.</p>
       )}
-    </div>
+    </Link>
   );
 }

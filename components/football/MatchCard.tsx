@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { FootballMatch } from '@/types';
 import LiveBadge from '../shared/LiveBadge';
 
@@ -13,7 +14,10 @@ export default function MatchCard({ match }: { match: FootballMatch }) {
   const { homeTeam, awayTeam } = match;
 
   return (
-    <div className="rounded-lg bg-slate-900 border border-slate-800 p-4 hover:bg-slate-800/50 transition-colors">
+    <Link
+      href={`/football/${match.id}`}
+      className="block rounded-lg bg-slate-900 border border-slate-800 p-4 hover:bg-slate-800/50 transition-colors"
+    >
       {/* Top row */}
       <div className="flex justify-between items-center mb-3">
         <span className="text-xs text-gray-400 uppercase tracking-wide">
@@ -50,6 +54,6 @@ export default function MatchCard({ match }: { match: FootballMatch }) {
           <span className="text-gray-400">{formatTime(match.startTime)}</span>
         )}
       </div>
-    </div>
+    </Link>
   );
 }

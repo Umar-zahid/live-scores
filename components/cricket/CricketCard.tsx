@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { CricketMatch } from '@/types';
 import LiveBadge from '../shared/LiveBadge';
 
@@ -29,7 +30,10 @@ function TeamRow({ team, align }: { team: Team; align: 'left' | 'right' }) {
 
 export default function CricketCard({ match }: { match: CricketMatch }) {
   return (
-    <div className="rounded-lg bg-slate-900 border border-slate-800 p-4 hover:bg-slate-800/50 transition-colors">
+    <Link
+      href={`/cricket/${match.id}`}
+      className="block rounded-lg bg-slate-900 border border-slate-800 p-4 hover:bg-slate-800/50 transition-colors"
+    >
       {/* Top row */}
       <div className="flex justify-between items-center mb-3">
         <span className="text-xs text-gray-400 uppercase tracking-wide">
@@ -62,6 +66,7 @@ export default function CricketCard({ match }: { match: CricketMatch }) {
           <span className="text-gray-400">RR {match.runRate.toFixed(2)}</span>
         )}
       </div>
-    </div>
+    </Link>
   );
 }
+
