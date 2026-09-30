@@ -1,5 +1,5 @@
 import { FootballMatch } from '@/types';
-import LiveBadge from './LiveBadge';
+import LiveBadge from '../shared/LiveBadge';
 
 const formatTime = (iso: string) => {
   const d = new Date(iso);
@@ -14,6 +14,7 @@ export default function MatchCard({ match }: { match: FootballMatch }) {
 
   return (
     <div className="rounded-lg bg-slate-900 border border-slate-800 p-4 hover:bg-slate-800/50 transition-colors">
+      {/* Top row */}
       <div className="flex justify-between items-center mb-3">
         <span className="text-xs text-gray-400 uppercase tracking-wide">
           {match.league}
@@ -21,6 +22,7 @@ export default function MatchCard({ match }: { match: FootballMatch }) {
         {match.status === 'live' && <LiveBadge />}
       </div>
 
+      {/* Middle row */}
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <div className="font-medium text-white truncate">{homeTeam.name}</div>
@@ -33,6 +35,7 @@ export default function MatchCard({ match }: { match: FootballMatch }) {
         </div>
       </div>
 
+      {/* Bottom row */}
       <div className="mt-3 text-xs flex justify-between">
         {match.status === 'live' && (
           <span className="text-red-500 font-semibold">{`${match.minute}'`}</span>

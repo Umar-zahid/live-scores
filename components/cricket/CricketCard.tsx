@@ -1,5 +1,5 @@
 import { CricketMatch } from '@/types';
-import LiveBadge from './LiveBadge';
+import LiveBadge from '../shared/LiveBadge';
 
 const formatTime = (iso: string) => {
   const d = new Date(iso);

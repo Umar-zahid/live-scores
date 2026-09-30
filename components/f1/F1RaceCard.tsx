@@ -1,5 +1,5 @@
 import { F1Race } from '@/types';
-import LiveBadge from './LiveBadge';
+import LiveBadge from '../shared/LiveBadge';
 
 const tireColors: Record<string, string> = {
   soft: 'bg-red-500',

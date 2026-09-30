@@ -1,4 +1,4 @@
-import CricketCard from '@/components/CricketCard';
+import CricketCard from '@/components/cricket/CricketCard';
 import { CricketMatch } from '@/types';
 import matchesData from '@/data/cricket.json';
 

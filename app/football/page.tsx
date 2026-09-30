@@ -1,4 +1,4 @@
-import MatchCard from '@/components/MatchCard';
+import MatchCard from '@/components/football/MatchCard';
 import { FootballMatch } from '@/types';
 import matchesData from '@/data/football.json';
 

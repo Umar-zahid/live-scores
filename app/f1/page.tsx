@@ -1,4 +1,4 @@
-import F1RaceCard from '@/components/F1RaceCard';
+import F1RaceCard from '@/components/f1/F1RaceCard';
 import { F1Race } from '@/types';
 import racesData from '@/data/f1.json';
 
