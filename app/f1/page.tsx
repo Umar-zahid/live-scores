@@ -33,13 +33,6 @@ const abbrMap: Record<string, string> = {
 const getAbbr = (team: string) =>
   abbrMap[team] ?? team.slice(0, 3).toUpperCase();
 
-const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  });
-
 function RaceRow({ race }: { race: F1Race }) {
   const isLive = race.status === 'live';
   const isUpcoming = race.status === 'upcoming';
@@ -124,10 +117,10 @@ function RaceRow({ race }: { race: F1Race }) {
         <div className="mt-space-sm pt-space-sm flex items-center justify-between gap-space-sm font-body-sm text-body-sm">
           <div className="flex items-center gap-space-xs text-on-surface-variant">
             <span className="material-symbols-outlined text-[16px]">flag</span>
-            <span>Starts {formatTime(race.startTime)} GMT</span>
+            <span>Race Preview</span>
           </div>
           <span className="inline-flex items-center gap-1 font-label-md text-label-md text-error group-hover:text-error-container transition-colors font-bold uppercase tracking-wider">
-            Race Preview
+            View Details
             <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
           </span>
         </div>

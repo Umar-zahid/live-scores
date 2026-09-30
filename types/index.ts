@@ -25,6 +25,9 @@ export interface CricketMatch {
   currentInnings: number;
   runRate: number;
   statusText: string;
+  lastOver?: string[];
+  striker?: { name: string; runs: number; balls: number };
+  bowler?: { name: string; wickets: number; runs: number };
 }
 
 export interface F1Driver {
