@@ -9,7 +9,10 @@
     "team2": { "name": "India", "score": 132, "wickets": 4, "overs": "15.0" },
     "currentInnings": 2,
     "runRate": 8.8,
-    "statusText": "India need 45 runs in 30 balls"
+    "statusText": "India need 45 runs in 30 balls",
+    "lastOver": ["1", "4", "0", "6", "W", "2"],
+    "striker": { "name": "H. Pandya", "runs": 34, "balls": 18 },
+    "bowler": { "name": "M. Starc", "wickets": 2, "runs": 31 }
   },
   {
     "id": "2",
@@ -21,7 +24,10 @@
     "team2": { "name": "Pakistan", "score": 0, "wickets": 0, "overs": "0.0" },
     "currentInnings": 1,
     "runRate": 6.55,
-    "statusText": "England batting first"
+    "statusText": "England batting first",
+    "lastOver": ["0", "1", "4", "1", "0", "2"],
+    "striker": { "name": "J. Root", "runs": 88, "balls": 102 },
+    "bowler": { "name": "S. Afridi", "wickets": 1, "runs": 42 }
   },
   {
     "id": "3",
@@ -48,3 +54,4 @@
     "statusText": "New Zealand won by 5 wickets"
   }
 ]
+
