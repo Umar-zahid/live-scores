@@ -1,0 +1,46 @@
+[
+  {
+    "id": "1",
+    "sport": "f1",
+    "status": "live",
+    "raceName": "Singapore Grand Prix",
+    "lap": 34,
+    "totalLaps": 62,
+    "drivers": [
+      { "position": 1, "name": "Max Verstappen", "team": "Red Bull", "gap": "Leader", "pitStops": 1, "tireCompound": "hard" },
+      { "position": 2, "name": "Lando Norris", "team": "McLaren", "gap": "+2.845s", "pitStops": 1, "tireCompound": "hard" },
+      { "position": 3, "name": "Charles Leclerc", "team": "Ferrari", "gap": "+5.312s", "pitStops": 1, "tireCompound": "medium" },
+      { "position": 4, "name": "Oscar Piastri", "team": "McLaren", "gap": "+7.980s", "pitStops": 1, "tireCompound": "hard" },
+      { "position": 5, "name": "George Russell", "team": "Mercedes", "gap": "+11.406s", "pitStops": 2, "tireCompound": "soft" },
+      { "position": 6, "name": "Lewis Hamilton", "team": "Ferrari", "gap": "+14.127s", "pitStops": 1, "tireCompound": "medium" },
+      { "position": 7, "name": "Kimi Antonelli", "team": "Mercedes", "gap": "+18.550s", "pitStops": 2, "tireCompound": "soft" },
+      { "position": 8, "name": "Fernando Alonso", "team": "Aston Martin", "gap": "+23.091s", "pitStops": 1, "tireCompound": "hard" },
+      { "position": 9, "name": "Alex Albon", "team": "Williams", "gap": "+27.764s", "pitStops": 1, "tireCompound": "medium" },
+      { "position": 10, "name": "Pierre Gasly", "team": "Alpine", "gap": "+31.238s", "pitStops": 2, "tireCompound": "soft" }
+    ]
+  },
+  {
+    "id": "2",
+    "sport": "f1",
+    "status": "finished",
+    "raceName": "Italian Grand Prix",
+    "lap": 53,
+    "totalLaps": 53,
+    "drivers": [
+      { "position": 1, "name": "Lando Norris", "team": "McLaren", "gap": "Leader", "pitStops": 1, "tireCompound": "hard" },
+      { "position": 2, "name": "Oscar Piastri", "team": "McLaren", "gap": "+3.421s", "pitStops": 1, "tireCompound": "hard" },
+      { "position": 3, "name": "Charles Leclerc", "team": "Ferrari", "gap": "+9.874s", "pitStops": 1, "tireCompound": "hard" },
+      { "position": 4, "name": "Max Verstappen", "team": "Red Bull", "gap": "+15.203s", "pitStops": 2, "tireCompound": "medium" },
+      { "position": 5, "name": "George Russell", "team": "Mercedes", "gap": "+21.657s", "pitStops": 1, "tireCompound": "hard" }
+    ]
+  },
+  {
+    "id": "3",
+    "sport": "f1",
+    "status": "upcoming",
+    "raceName": "Japanese Grand Prix",
+    "lap": 0,
+    "totalLaps": 53,
+    "drivers": []
+  }
+]

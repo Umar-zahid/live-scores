@@ -1,0 +1,50 @@
+[
+  {
+    "id": "1",
+    "sport": "cricket",
+    "status": "live",
+    "league": "T20 International",
+    "startTime": "2026-09-30T14:00:00Z",
+    "team1": { "name": "Australia", "score": 176, "wickets": 6, "overs": "20.0" },
+    "team2": { "name": "India", "score": 132, "wickets": 4, "overs": "15.0" },
+    "currentInnings": 2,
+    "runRate": 8.8,
+    "statusText": "India need 45 runs in 30 balls"
+  },
+  {
+    "id": "2",
+    "sport": "cricket",
+    "status": "live",
+    "league": "ODI Series",
+    "startTime": "2026-09-30T09:30:00Z",
+    "team1": { "name": "England", "score": 214, "wickets": 3, "overs": "32.4" },
+    "team2": { "name": "Pakistan", "score": 0, "wickets": 0, "overs": "0.0" },
+    "currentInnings": 1,
+    "runRate": 6.55,
+    "statusText": "England batting first"
+  },
+  {
+    "id": "3",
+    "sport": "cricket",
+    "status": "upcoming",
+    "league": "IPL",
+    "startTime": "2026-10-01T14:00:00Z",
+    "team1": { "name": "Mumbai Indians", "score": 0, "wickets": 0, "overs": "0.0" },
+    "team2": { "name": "Chennai Super Kings", "score": 0, "wickets": 0, "overs": "0.0" },
+    "currentInnings": 0,
+    "runRate": 0,
+    "statusText": "Match starts at 19:30 local"
+  },
+  {
+    "id": "4",
+    "sport": "cricket",
+    "status": "finished",
+    "league": "T20 International",
+    "startTime": "2026-09-30T08:00:00Z",
+    "team1": { "name": "South Africa", "score": 162, "wickets": 7, "overs": "20.0" },
+    "team2": { "name": "New Zealand", "score": 165, "wickets": 5, "overs": "18.4" },
+    "currentInnings": 2,
+    "runRate": 8.84,
+    "statusText": "New Zealand won by 5 wickets"
+  }
+]

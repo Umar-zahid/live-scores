@@ -1,0 +1,69 @@
+[
+  {
+    "id": "1",
+    "sport": "football",
+    "status": "live",
+    "league": "Premier League",
+    "startTime": "2026-09-30T18:30:00Z",
+    "homeTeam": { "name": "Arsenal", "score": 2 },
+    "awayTeam": { "name": "Chelsea", "score": 1 },
+    "minute": 67,
+    "events": [
+      { "minute": 23, "type": "goal", "player": "Bukayo Saka", "team": "home" },
+      { "minute": 41, "type": "goal", "player": "Nicolas Jackson", "team": "away" },
+      { "minute": 58, "type": "goal", "player": "Kai Havertz", "team": "home" },
+      { "minute": 62, "type": "yellow_card", "player": "Moises Caicedo", "team": "away" }
+    ]
+  },
+  {
+    "id": "2",
+    "sport": "football",
+    "status": "live",
+    "league": "Premier League",
+    "startTime": "2026-09-30T19:00:00Z",
+    "homeTeam": { "name": "Liverpool", "score": 0 },
+    "awayTeam": { "name": "Man City", "score": 0 },
+    "minute": 23,
+    "events": []
+  },
+  {
+    "id": "3",
+    "sport": "football",
+    "status": "halftime",
+    "league": "Premier League",
+    "startTime": "2026-09-30T18:45:00Z",
+    "homeTeam": { "name": "Man United", "score": 1 },
+    "awayTeam": { "name": "Tottenham", "score": 1 },
+    "minute": 45,
+    "events": [
+      { "minute": 18, "type": "goal", "player": "Marcus Rashford", "team": "home" },
+      { "minute": 37, "type": "goal", "player": "Son Heung-min", "team": "away" }
+    ]
+  },
+  {
+    "id": "4",
+    "sport": "football",
+    "status": "upcoming",
+    "league": "Premier League",
+    "startTime": "2026-09-30T21:00:00Z",
+    "homeTeam": { "name": "Newcastle", "score": 0 },
+    "awayTeam": { "name": "Brighton", "score": 0 },
+    "events": []
+  },
+  {
+    "id": "5",
+    "sport": "football",
+    "status": "finished",
+    "league": "Premier League",
+    "startTime": "2026-09-30T16:00:00Z",
+    "homeTeam": { "name": "Aston Villa", "score": 3 },
+    "awayTeam": { "name": "West Ham", "score": 0 },
+    "minute": 90,
+    "events": [
+      { "minute": 12, "type": "goal", "player": "Ollie Watkins", "team": "home" },
+      { "minute": 55, "type": "goal", "player": "John McGinn", "team": "home" },
+      { "minute": 78, "type": "goal", "player": "Morgan Rogers", "team": "home" }
+    ]
+  }
+]
+
