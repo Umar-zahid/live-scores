@@ -2,22 +2,6 @@ import Link from 'next/link';
 import { FootballMatch } from '@/types';
 import { getFootballMatches } from '@/lib/football-api';
 
-const abbrMap: Record<string, string> = {
-  Arsenal: 'ARS',
-  Chelsea: 'CHE',
-  Liverpool: 'LIV',
-  'Man City': 'MCI',
-  'Man United': 'MUN',
-  Tottenham: 'TOT',
-  Newcastle: 'NEW',
-  Brighton: 'BHA',
-  'Aston Villa': 'AVL',
-  'West Ham': 'WHU',
-};
-
-const getAbbr = (name: string) =>
-  abbrMap[name] ?? name.slice(0, 3).toUpperCase();
-
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('en-GB', {
     hour: '2-digit',
@@ -52,15 +36,53 @@ const statusStyle = {
   },
 } as const;
 
+function EventIcon({ type }: { type: string }) {
+  if (type === 'goal') {
+    return (
+      <span className="material-symbols-outlined text-[14px] text-primary">
+        sports_soccer
+      </span>
+    );
+  }
+  if (type === 'yellow_card') {
+    return (
+      <span
+        className="inline-block w-2.5 h-3.5 rounded-[2px] bg-yellow-400 shrink-0"
+        aria-label="Yellow card"
+      />
+    );
+  }
+  if (type === 'red_card') {
+    return (
+      <span
+        className="inline-block w-2.5 h-3.5 rounded-[2px] bg-error shrink-0"
+        aria-label="Red card"
+      />
+    );
+  }
+  if (type === 'substitution') {
+    return (
+      <span className="material-symbols-outlined text-[14px] text-secondary">
+        swap_horiz
+      </span>
+    );
+  }
+  return (
+    <span className="material-symbols-outlined text-[14px] text-on-surface-variant">
+      circle
+    </span>
+  );
+}
+
 function StatusBadge({ match }: { match: FootballMatch }) {
   if (match.status === 'live') {
     return (
-      <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-error-container/20 border border-error/30">
-        <span className="relative flex h-2 w-2">
+      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-error-container/20 border border-error/30 shrink-0">
+        <span className="relative flex h-1.5 w-1.5">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-error"></span>
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-error"></span>
         </span>
-        <span className="font-label-sm text-label-sm text-error uppercase font-extrabold tracking-wider">
+        <span className="font-label-sm text-[9px] sm:text-label-sm text-error uppercase font-extrabold tracking-wider">
           {`LIVE ${match.minute ?? ''}'`}
         </span>
       </div>
@@ -68,9 +90,9 @@ function StatusBadge({ match }: { match: FootballMatch }) {
   }
   if (match.status === 'halftime') {
     return (
-      <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30">
-        <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-        <span className="font-label-sm text-label-sm text-amber-400 uppercase font-extrabold tracking-wider">
+      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+        <span className="font-label-sm text-[9px] sm:text-label-sm text-amber-400 uppercase font-extrabold tracking-wider">
           HT
         </span>
       </div>
@@ -78,53 +100,23 @@ function StatusBadge({ match }: { match: FootballMatch }) {
   }
   if (match.status === 'upcoming') {
     return (
-      <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-container-high border border-surface-container-highest">
-        <span className="material-symbols-outlined text-outline text-[14px]">
+      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-high border border-surface-container-highest shrink-0">
+        <span className="material-symbols-outlined text-outline text-[12px]">
           schedule
         </span>
-        <span className="font-label-sm text-label-sm text-on-surface-variant uppercase font-bold tracking-wider">
-          {`UPCOMING ${formatTime(match.startTime)}`}
+        <span className="font-label-sm text-[9px] sm:text-label-sm text-on-surface-variant uppercase font-bold tracking-wider">
+          {formatTime(match.startTime)}
         </span>
       </div>
     );
   }
   return (
-    <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-surface-container-high/90 border border-surface-container-highest">
+    <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-high/90 border border-surface-container-highest shrink-0">
       <span className="w-1.5 h-1.5 rounded-full bg-outline"></span>
-      <span className="font-label-sm text-label-sm text-on-surface-variant uppercase font-bold tracking-wider">
+      <span className="font-label-sm text-[9px] sm:text-label-sm text-on-surface-variant uppercase font-bold tracking-wider">
         FT
       </span>
     </div>
-  );
-}
-
-function PeriodLabel({ match }: { match: FootballMatch }) {
-  if (match.status === 'live') {
-    const text = (match.minute ?? 0) > 45 ? '2nd Half' : '1st Half';
-    return (
-      <span className="font-label-sm text-label-sm text-error uppercase tracking-widest mt-1 font-bold">
-        {text}
-      </span>
-    );
-  }
-  if (match.status === 'halftime') {
-    return (
-      <span className="font-label-sm text-label-sm text-amber-400 uppercase tracking-widest mt-1 font-bold">
-        Break
-      </span>
-    );
-  }
-  if (match.status === 'upcoming') {
-    return (
-      <span className="font-label-sm text-label-sm text-outline uppercase tracking-widest mt-1">
-        {`${formatTime(match.startTime)} GMT`}
-      </span>
-    );
-  }
-  return (
-    <span className="font-label-sm text-label-sm text-outline uppercase tracking-widest mt-1">
-      Full Time
-    </span>
   );
 }
 
@@ -135,132 +127,142 @@ function MatchRow({ match }: { match: FootballMatch }) {
   const isFinished = match.status === 'finished';
   const homeWon = isFinished && homeTeam.score > awayTeam.score;
   const awayWon = isFinished && awayTeam.score > homeTeam.score;
-  const homeAbbr = getAbbr(homeTeam.name);
-  const awayAbbr = getAbbr(awayTeam.name);
   const events = [...match.events].sort((a, b) => a.minute - b.minute);
 
   return (
     <Link
       href={`/football/${match.id}`}
-      className={`match-card group relative block bg-surface-container-low/40 backdrop-blur-sm border border-surface-container-highest/40 rounded-lg p-5 overflow-hidden transition-all duration-200 hover:bg-surface-container-low/60 ${style.hover}`}
+      className={`match-card group relative block bg-surface-container-low/40 backdrop-blur-sm border border-surface-container-highest/40 rounded-lg p-3 md:p-5 overflow-hidden transition-all duration-200 hover:bg-surface-container-low/60 ${style.hover}`}
     >
       <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${style.bar}`}></div>
 
-      <div className="flex items-center justify-between pb-3.5 border-b border-surface-container-highest/40">
-        <div className="flex items-center gap-2">
-          <span className={`${style.bullet} text-[10px] font-bold`}>•</span>
-          <span className="font-label-sm text-label-sm text-on-surface-variant tracking-wider uppercase font-semibold truncate">
+      {/* League + status row */}
+      <div className="flex items-center justify-between gap-2 pb-2.5 md:pb-3.5 border-b border-surface-container-highest/40">
+        <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
+          <span className={`${style.bullet} text-[10px] font-bold shrink-0`}>•</span>
+          {match.leagueLogo && (
+            <img
+              src={match.leagueLogo}
+              alt=""
+              className="w-3.5 h-3.5 md:w-4 md:h-4 object-contain shrink-0"
+            />
+          )}
+          <span className="font-label-sm text-[9px] sm:text-label-sm text-on-surface-variant tracking-wider uppercase font-semibold truncate">
             {match.league}
           </span>
         </div>
         <StatusBadge match={match} />
       </div>
 
-      <div className="py-4 grid grid-cols-12 items-center gap-2">
-        <div className="col-span-5 flex items-center justify-end gap-3 text-right">
-          <div className="min-w-0">
-            <div className="flex items-center justify-end gap-1.5">
-              {homeWon && (
-                <span className="material-symbols-outlined text-primary text-[16px]">
-                  check_circle
-                </span>
-              )}
-              <p
-                className={`font-headline-md text-headline-md text-on-surface tracking-tight truncate font-extrabold transition-colors ${style.titleHover}`}
-              >
-                {homeTeam.name}
-              </p>
-            </div>
+      {/* Teams + score — 5/2/5 grid, tightened on mobile */}
+      <div className="py-3 md:py-4 grid grid-cols-12 items-center gap-1 md:gap-2">
+        {/* Home */}
+        <div className="col-span-5 flex items-center justify-end gap-1.5 md:gap-3 text-right min-w-0">
+          <div className="min-w-0 flex items-center justify-end gap-1 md:gap-1.5">
+            {homeWon && (
+              <span className="material-symbols-outlined text-primary text-[14px] shrink-0 hidden sm:inline">
+                check_circle
+              </span>
+            )}
+            <p
+              className={`text-[12px] sm:text-sm md:text-headline-md text-on-surface tracking-tight truncate font-extrabold transition-colors ${style.titleHover}`}
+            >
+              {homeTeam.name}
+            </p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-surface-container-highest border border-surface-container flex items-center justify-center shrink-0 shadow-inner">
-            <span className="font-headline-md text-headline-md font-black text-primary">
-              {homeAbbr}
-            </span>
+          <div className="w-7 h-7 md:w-10 md:h-10 rounded-full bg-surface-container-highest border border-surface-container flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
+            {homeTeam.logo ? (
+              <img
+                src={homeTeam.logo}
+                alt={homeTeam.name}
+                className="w-5 h-5 md:w-7 md:h-7 object-contain"
+              />
+            ) : (
+              <span className="text-[10px] md:text-headline-md font-black text-primary">
+                {homeTeam.name.slice(0, 3).toUpperCase()}
+              </span>
+            )}
           </div>
         </div>
 
+        {/* Score */}
         <div className="col-span-2 flex flex-col items-center justify-center">
           <div
-            className={`flex items-center justify-center gap-2 px-3 py-1 rounded border w-full max-w-[96px] ${
+            className={`flex items-center justify-center gap-1 md:gap-2 px-1.5 md:px-3 py-0.5 md:py-1 rounded border ${
               isUpcoming
                 ? 'bg-surface-container-lowest/50 border-surface-container-highest/40'
                 : 'bg-surface-container-lowest/80 border-surface-container-highest/60'
             }`}
           >
             <span
-              className={`font-score-display text-score-display font-extrabold tabular-nums ${
+              className={`text-[15px] sm:text-lg md:text-score-display font-extrabold tabular-nums ${
                 isUpcoming ? 'text-outline' : 'text-on-surface'
               }`}
             >
               {isUpcoming ? '—' : homeTeam.score}
             </span>
             <span
-              className={`font-headline-md text-headline-md font-bold ${
+              className={`text-[11px] md:text-headline-md font-bold ${
                 isUpcoming ? 'text-outline/50' : 'text-outline'
               }`}
             >
               :
             </span>
             <span
-              className={`font-score-display text-score-display font-extrabold tabular-nums ${
+              className={`text-[15px] sm:text-lg md:text-score-display font-extrabold tabular-nums ${
                 isUpcoming || homeWon ? 'text-outline' : 'text-on-surface'
               }`}
             >
               {isUpcoming ? '—' : awayTeam.score}
             </span>
           </div>
-          <PeriodLabel match={match} />
         </div>
 
-        <div className="col-span-5 flex items-center justify-start gap-3 text-left">
-          <div
-            className={`w-10 h-10 rounded-full bg-surface-container-highest border border-surface-container flex items-center justify-center shrink-0 shadow-inner ${
-              homeWon ? 'opacity-75' : ''
-            }`}
-          >
-            <span className="font-headline-md text-headline-md font-black text-secondary">
-              {awayAbbr}
-            </span>
+        {/* Away */}
+        <div className="col-span-5 flex items-center justify-start gap-1.5 md:gap-3 text-left min-w-0">
+          <div className={`w-7 h-7 md:w-10 md:h-10 rounded-full bg-surface-container-highest border border-surface-container flex items-center justify-center shrink-0 shadow-inner overflow-hidden ${homeWon ? 'opacity-75' : ''}`}>
+            {awayTeam.logo ? (
+              <img
+                src={awayTeam.logo}
+                alt={awayTeam.name}
+                className="w-5 h-5 md:w-7 md:h-7 object-contain"
+              />
+            ) : (
+              <span className="text-[10px] md:text-headline-md font-black text-secondary">
+                {awayTeam.name.slice(0, 3).toUpperCase()}
+              </span>
+            )}
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              {awayWon && (
-                <span className="material-symbols-outlined text-primary text-[16px]">
-                  check_circle
-                </span>
-              )}
-              <p
-                className={`font-headline-md text-headline-md tracking-tight truncate ${
-                  homeWon
-                    ? 'text-on-surface-variant font-semibold'
-                    : 'text-on-surface font-extrabold'
-                }`}
-              >
-                {awayTeam.name}
-              </p>
-            </div>
+          <div className="min-w-0 flex items-center gap-1 md:gap-1.5">
+            <p
+              className={`text-[12px] sm:text-sm md:text-headline-md tracking-tight truncate ${
+                homeWon
+                  ? 'text-on-surface-variant font-semibold'
+                  : 'text-on-surface font-extrabold'
+              }`}
+            >
+              {awayTeam.name}
+            </p>
+            {awayWon && (
+              <span className="material-symbols-outlined text-primary text-[14px] shrink-0 hidden sm:inline">
+                check_circle
+              </span>
+            )}
           </div>
         </div>
       </div>
 
+      {/* Events row — proper card icons now */}
       {events.length > 0 && (
-        <div className="pt-3 border-t border-surface-container-highest/40 flex flex-wrap items-center gap-2">
-          {events.slice(0, 4).map((e, i) => (
+        <div className="pt-2.5 md:pt-3 border-t border-surface-container-highest/40 flex flex-wrap items-center gap-1.5 md:gap-2">
+          {events.slice(0, 3).map((e, i) => (
             <span
               key={i}
-              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container-high/80 text-on-surface border border-surface-container-highest/50 text-body-sm"
+              className="inline-flex items-center gap-1 md:gap-1.5 px-1.5 md:px-2 py-0.5 rounded bg-surface-container-high/80 text-on-surface border border-surface-container-highest/50 text-[10px] md:text-body-sm max-w-full"
             >
-              <span className="material-symbols-outlined text-[14px]">
-                {e.type === 'goal'
-                  ? 'sports_soccer'
-                  : e.type === 'yellow_card'
-                  ? 'square'
-                  : e.type === 'red_card'
-                  ? 'square'
-                  : 'swap_horiz'}
-              </span>
-              <span className="font-bold text-primary">{`${e.minute}'`}</span>
-              <span>{e.player}</span>
+              <EventIcon type={e.type} />
+              <span className="font-bold text-primary shrink-0">{`${e.minute}'`}</span>
+              <span className="truncate max-w-[90px] sm:max-w-[140px]">{e.player}</span>
             </span>
           ))}
         </div>
@@ -284,57 +286,59 @@ export default async function FootballPage() {
 
         <main className="relative z-10 w-full bg-surface-container-lowest min-h-screen">
           <div className="flex flex-col w-full">
-            <div className="max-w-7xl mx-auto w-full px-gutter md:px-gutter-desktop py-space-lg flex flex-col gap-space-lg">
-              <header className="flex flex-col md:flex-row md:items-end justify-between gap-space-md pb-space-sm">
-                <div className="flex flex-col gap-space-xs">
-                  <div className="inline-flex items-center gap-space-xs self-start px-space-sm py-0.5 rounded-full bg-primary-container/20 text-primary">
-                    <span className="material-symbols-outlined text-[14px]">
+            <div className="max-w-7xl mx-auto w-full px-3 sm:px-4 md:px-gutter-desktop py-4 md:py-space-lg flex flex-col gap-3 md:gap-space-lg">
+              {/* Header */}
+              <header className="flex flex-col gap-3 md:gap-space-md pb-1 md:pb-space-sm">
+                <div className="flex flex-col gap-1 md:gap-space-xs">
+                  <div className="inline-flex items-center gap-1 self-start px-2 py-0.5 rounded-full bg-primary-container/20 text-primary">
+                    <span className="material-symbols-outlined text-[12px]">
                       sports_soccer
                     </span>
-                    <span className="font-label-sm text-label-sm uppercase tracking-wider font-bold">
+                    <span className="font-label-sm text-[9px] sm:text-label-sm uppercase tracking-wider font-bold">
                       Football Live Telemetry
                     </span>
                   </div>
-                  <h1 className="font-headline-xl text-headline-xl uppercase tracking-tight text-on-surface font-black">
+                  <h1 className="text-2xl sm:text-3xl md:text-headline-xl uppercase tracking-tight text-on-surface font-black">
                     Football
                   </h1>
-                  <p className="font-body-md text-body-md text-on-surface-variant">
+                  <p className="text-xs sm:text-sm md:text-body-md text-on-surface-variant">
                     Live Scores &amp; Match Center • Real-Time Data
                   </p>
                 </div>
 
-                <div className="flex items-center gap-space-sm flex-wrap">
-                  <div className="flex items-center gap-space-xs bg-surface-container-high/60 backdrop-blur-sm px-space-md py-1.5 rounded-full">
-                    <span className="material-symbols-outlined text-primary text-[16px]">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1 bg-surface-container-high/60 backdrop-blur-sm px-2.5 py-1 md:px-space-md md:py-1.5 rounded-full">
+                    <span className="material-symbols-outlined text-primary text-[14px] md:text-[16px]">
                       calendar_today
                     </span>
-                    <span className="font-label-md text-label-md text-on-surface font-semibold tracking-wide uppercase">
-                      {`${matches.length} Matches Live`}
+                    <span className="font-label-md text-[10px] sm:text-label-md text-on-surface font-semibold tracking-wide uppercase">
+                      {`${matches.length} Matches`}
                     </span>
                   </div>
-                  <div className="flex items-center gap-space-xs bg-error-container/25 px-space-md py-1.5 rounded-full">
-                    <span className="w-2 h-2 rounded-full bg-error animate-ping"></span>
-                    <span className="font-label-md text-label-md text-error font-bold uppercase tracking-wider">
-                      {`${liveCount} Live Now`}
+                  <div className="flex items-center gap-1 bg-error-container/25 px-2.5 py-1 md:px-space-md md:py-1.5 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>
+                    <span className="font-label-md text-[10px] sm:text-label-md text-error font-bold uppercase tracking-wider">
+                      {`${liveCount} Live`}
                     </span>
                   </div>
                 </div>
               </header>
 
+              {/* Match list */}
               {matches.length === 0 ? (
-                <div className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-12 text-center">
-                  <span className="material-symbols-outlined text-[64px] text-on-surface-variant mb-4">
+                <div className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-8 md:p-12 text-center">
+                  <span className="material-symbols-outlined text-[48px] md:text-[64px] text-on-surface-variant mb-3">
                     sports_soccer
                   </span>
-                  <h2 className="font-headline-md text-headline-md text-on-surface font-bold mb-2">
+                  <h2 className="text-base md:text-headline-md text-on-surface font-bold mb-1.5">
                     No Live Matches Right Now
                   </h2>
-                  <p className="font-body-md text-body-md text-on-surface-variant">
+                  <p className="text-xs md:text-body-md text-on-surface-variant">
                     Check back soon — live matches will appear here automatically.
                   </p>
                 </div>
               ) : (
-                <section className="flex flex-col gap-space-md">
+                <section className="flex flex-col gap-2 md:gap-space-md">
                   {matches.map((match) => (
                     <MatchRow key={match.id} match={match} />
                   ))}
@@ -345,38 +349,29 @@ export default async function FootballPage() {
         </main>
       </div>
 
-      <footer className="w-full bg-surface-container-low border-t border-surface-container-highest/60 py-space-xl mt-space-xl">
-        <div className="max-w-7xl mx-auto px-gutter-desktop flex flex-col md:flex-row items-center justify-between gap-space-lg text-on-surface-variant font-body-sm text-body-sm">
-          <div className="flex items-center gap-space-sm">
-            <div className="w-6 h-6 rounded bg-surface-container flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary text-[14px]">
+      <footer className="w-full bg-surface-container-low border-t border-surface-container-highest/60 py-6 md:py-space-xl mt-8 md:mt-space-xl">
+        <div className="max-w-7xl mx-auto px-3 md:px-gutter-desktop flex flex-col md:flex-row items-center justify-between gap-3 md:gap-space-lg text-on-surface-variant text-xs md:text-body-sm">
+          <div className="flex items-center gap-1.5 md:gap-space-sm flex-wrap justify-center">
+            <div className="w-5 h-5 md:w-6 md:h-6 rounded bg-surface-container flex items-center justify-center">
+              <span className="material-symbols-outlined text-primary text-[12px] md:text-[14px]">
                 sports_score
               </span>
             </div>
-            <span className="font-label-md text-label-md text-on-surface uppercase">
+            <span className="font-label-md text-[10px] md:text-label-md text-on-surface uppercase">
               LIVESCOREHUB © 2025
             </span>
-            <span className="text-outline">|</span>
-            <span>Real-Time Multi-Sport Telemetry</span>
+            <span className="text-outline hidden sm:inline">|</span>
+            <span className="hidden sm:inline">Real-Time Multi-Sport Telemetry</span>
           </div>
-          <div className="flex items-center gap-space-lg font-label-md text-label-md">
-            <Link
-              className="text-on-surface-variant hover:text-on-surface transition-colors"
-              href="#"
-            >
-              Privacy Policy
+          <div className="flex items-center gap-3 md:gap-space-lg font-label-md text-[10px] md:text-label-md flex-wrap justify-center">
+            <Link className="text-on-surface-variant hover:text-on-surface transition-colors" href="#">
+              Privacy
             </Link>
-            <Link
-              className="text-on-surface-variant hover:text-on-surface transition-colors"
-              href="#"
-            >
+            <Link className="text-on-surface-variant hover:text-on-surface transition-colors" href="#">
               API Feeds
             </Link>
-            <Link
-              className="text-on-surface-variant hover:text-on-surface transition-colors"
-              href="#"
-            >
-              Terms of Service
+            <Link className="text-on-surface-variant hover:text-on-surface transition-colors" href="#">
+              Terms
             </Link>
           </div>
         </div>
