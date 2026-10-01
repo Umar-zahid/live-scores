@@ -100,3 +100,27 @@ export interface PlayerSeasonStat {
   red: number;
   rating: number | null;
 }
+
+export interface LineupPlayer {
+  id: number;
+  name: string;
+  number: number | null;
+  position: string;
+  grid: string | null;
+}
+
+export interface LineupCoach {
+  id: number;
+  name: string;
+  photo: string;
+}
+
+export interface TeamLineup {
+  teamId: number;
+  teamName: string;
+  teamLogo: string;
+  formation: string;
+  startXI: LineupPlayer[];
+  substitutes: LineupPlayer[];
+  coach: LineupCoach | null;
+}

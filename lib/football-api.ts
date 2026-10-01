@@ -276,3 +276,56 @@ export async function getPlayerSeasonStats(
     return null;
   }
 }
+
+export async function getFixtureLineups(
+  fixtureId: string
+): Promise<import('@/types').TeamLineup[]> {
+  const key = process.env.API_FOOTBALL_KEY;
+  if (!key) return [];
+
+  try {
+    const res = await fetch(
+      `https://v3.football.api-sports.io/fixtures/lineups?fixture=${fixtureId}`,
+      {
+        headers: { 'x-apisports-key': key },
+        next: { revalidate: 300 },
+      }
+    );
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    if (!Array.isArray(data.response)) return [];
+
+    return data.response.map((block: any) => ({
+      teamId: block.team?.id ?? 0,
+      teamName: block.team?.name ?? '',
+      teamLogo: block.team?.logo ?? '',
+      formation: block.formation ?? '',
+      startXI: (block.startXI ?? []).map((p: any) => ({
+        id: p.player?.id ?? 0,
+        name: p.player?.name ?? 'Unknown',
+        number: p.player?.number ?? null,
+        position: p.player?.pos ?? '',
+        grid: p.player?.grid ?? null,
+      })),
+      substitutes: (block.substitutes ?? []).map((p: any) => ({
+        id: p.player?.id ?? 0,
+        name: p.player?.name ?? 'Unknown',
+        number: p.player?.number ?? null,
+        position: p.player?.pos ?? '',
+        grid: p.player?.grid ?? null,
+      })),
+      coach: block.coach
+        ? {
+            id: block.coach.id ?? 0,
+            name: block.coach.name ?? 'Unknown',
+            photo: block.coach.photo ?? '',
+          }
+        : null,
+    }));
+  } catch (err) {
+    console.error('Fixture lineups failed:', err);
+    return [];
+  }
+}
+
