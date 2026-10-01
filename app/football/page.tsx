@@ -36,44 +36,6 @@ const statusStyle = {
   },
 } as const;
 
-function EventIcon({ type }: { type: string }) {
-  if (type === 'goal') {
-    return (
-      <span className="material-symbols-outlined text-[14px] text-primary">
-        sports_soccer
-      </span>
-    );
-  }
-  if (type === 'yellow_card') {
-    return (
-      <span
-        className="inline-block w-2.5 h-3.5 rounded-[2px] bg-yellow-400 shrink-0"
-        aria-label="Yellow card"
-      />
-    );
-  }
-  if (type === 'red_card') {
-    return (
-      <span
-        className="inline-block w-2.5 h-3.5 rounded-[2px] bg-error shrink-0"
-        aria-label="Red card"
-      />
-    );
-  }
-  if (type === 'substitution') {
-    return (
-      <span className="material-symbols-outlined text-[14px] text-secondary">
-        swap_horiz
-      </span>
-    );
-  }
-  return (
-    <span className="material-symbols-outlined text-[14px] text-on-surface-variant">
-      circle
-    </span>
-  );
-}
-
 function StatusBadge({ match }: { match: FootballMatch }) {
   if (match.status === 'live') {
     return (
@@ -127,7 +89,6 @@ function MatchRow({ match }: { match: FootballMatch }) {
   const isFinished = match.status === 'finished';
   const homeWon = isFinished && homeTeam.score > awayTeam.score;
   const awayWon = isFinished && awayTeam.score > homeTeam.score;
-  const events = [...match.events].sort((a, b) => a.minute - b.minute);
 
   return (
     <Link
@@ -154,7 +115,7 @@ function MatchRow({ match }: { match: FootballMatch }) {
         <StatusBadge match={match} />
       </div>
 
-      {/* Teams + score — 5/2/5 grid, tightened on mobile */}
+      {/* Teams + score */}
       <div className="py-3 md:py-4 grid grid-cols-12 items-center gap-1 md:gap-2">
         {/* Home */}
         <div className="col-span-5 flex items-center justify-end gap-1.5 md:gap-3 text-right min-w-0">
@@ -220,7 +181,11 @@ function MatchRow({ match }: { match: FootballMatch }) {
 
         {/* Away */}
         <div className="col-span-5 flex items-center justify-start gap-1.5 md:gap-3 text-left min-w-0">
-          <div className={`w-7 h-7 md:w-10 md:h-10 rounded-full bg-surface-container-highest border border-surface-container flex items-center justify-center shrink-0 shadow-inner overflow-hidden ${homeWon ? 'opacity-75' : ''}`}>
+          <div
+            className={`w-7 h-7 md:w-10 md:h-10 rounded-full bg-surface-container-highest border border-surface-container flex items-center justify-center shrink-0 shadow-inner overflow-hidden ${
+              homeWon ? 'opacity-75' : ''
+            }`}
+          >
             {awayTeam.logo ? (
               <img
                 src={awayTeam.logo}
@@ -252,21 +217,18 @@ function MatchRow({ match }: { match: FootballMatch }) {
         </div>
       </div>
 
-      {/* Events row — proper card icons now */}
-      {events.length > 0 && (
-        <div className="pt-2.5 md:pt-3 border-t border-surface-container-highest/40 flex flex-wrap items-center gap-1.5 md:gap-2">
-          {events.slice(0, 3).map((e, i) => (
-            <span
-              key={i}
-              className="inline-flex items-center gap-1 md:gap-1.5 px-1.5 md:px-2 py-0.5 rounded bg-surface-container-high/80 text-on-surface border border-surface-container-highest/50 text-[10px] md:text-body-sm max-w-full"
-            >
-              <EventIcon type={e.type} />
-              <span className="font-bold text-primary shrink-0">{`${e.minute}'`}</span>
-              <span className="truncate max-w-[90px] sm:max-w-[140px]">{e.player}</span>
-            </span>
-          ))}
-        </div>
-      )}
+      {/* View details hint */}
+      <div className="pt-2.5 md:pt-3 border-t border-surface-container-highest/40 flex items-center justify-between text-on-surface-variant text-[10px] md:text-label-sm uppercase tracking-wider">
+        <span className="inline-flex items-center gap-1">
+          <span className="material-symbols-outlined text-[12px] md:text-[14px] text-primary">
+            info
+          </span>
+          View details
+        </span>
+        <span className="material-symbols-outlined text-[14px] md:text-[16px] text-primary group-hover:translate-x-0.5 transition-transform">
+          arrow_forward
+        </span>
+      </div>
     </Link>
   );
 }
