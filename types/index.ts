@@ -2,16 +2,35 @@ export type Sport = 'football' | 'cricket' | 'f1';
 
 export type MatchStatus = 'live' | 'upcoming' | 'finished' | 'halftime';
 
+export interface FootballTeam {
+  id: number;
+  name: string;
+  logo: string;
+  score: number;
+}
+
 export interface FootballMatch {
   id: string;
   sport: 'football';
   status: MatchStatus;
   league: string;
+  leagueLogo?: string;
+  leagueCountry?: string;
+  round?: string;
+  venue?: string;
+  referee?: string;
   startTime: string;
-  homeTeam: { name: string; score: number };
-  awayTeam: { name: string; score: number };
+  homeTeam: FootballTeam;
+  awayTeam: FootballTeam;
   minute?: number;
-  events: { minute: number; type: string; player: string; team: 'home' | 'away' }[];
+  events: {
+    minute: number;
+    type: string;
+    player: string;
+    assist?: string | null;
+    detail?: string;
+    team: 'home' | 'away';
+  }[];
 }
 
 export interface CricketMatch {
@@ -47,4 +66,37 @@ export interface F1Race {
   lap: number;
   totalLaps: number;
   drivers: F1Driver[];
+}
+
+export interface PlayerMatchStat {
+  playerId: number;
+  name: string;
+  photo: string;
+  number: number | null;
+  position: string;
+  rating: number | null;
+  minutes: number;
+  goals: number;
+  assists: number;
+  shots: number;
+  passes: number;
+  yellow: number;
+  red: number;
+  team: 'home' | 'away';
+}
+
+export interface PlayerSeasonStat {
+  playerId: number;
+  name: string;
+  photo: string;
+  age: number | null;
+  nationality: string;
+  team: string;
+  appearances: number;
+  goals: number;
+  assists: number;
+  minutes: number;
+  yellow: number;
+  red: number;
+  rating: number | null;
 }
