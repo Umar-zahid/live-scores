@@ -1,0 +1,82 @@
+═══════════════════════════════════════════════════════════════════
+LIVESCOREHUB — PROJECT HANDOFF
+Repo:   https://github.com/Umar-zahid/live-scores
+Live:   https://live-scores-omega.vercel.app
+Local:  ~/live-scores
+═══════════════════════════════════════════════════════════════════
+
+## WHAT THIS PROJECT IS
+Multi-sport live scores site (football, cricket, F1).
+Next.js 14.2.35 (App Router, TypeScript, Tailwind, Turbopack).
+Football works with real API. Cricket + F1 are placeholders.
+
+## WHAT WORKS (deployed & live)
+1. Home page — live football matches, sport cards. Cricket/F1 = "Coming soon".
+2. Football list (/football) — clean cards: league + logo, status, teams + logos + score.
+   No inline events. Mobile responsive.
+3. Match detail (/football/[id]) — score header, MATCH EVENTS (goals, yellow/red cards,
+   subs), LINEUPS & COACHES (formation, coach, starting XI, bench), venue, referee.
+   Card icons use INLINE STYLES (not Tailwind) — was a bug fix.
+4. PlayerMatchStats.tsx + SeasonStats.tsx exist but NOT currently imported.
+
+## FILE STRUCTURE
+app/layout.tsx, app/page.tsx, app/globals.css
+app/football/page.tsx, app/football/[id]/page.tsx
+components/football/Lineups.tsx (used)
+components/football/PlayerMatchStats.tsx (exists, unused)
+components/football/SeasonStats.tsx (exists, unused)
+lib/football-api.ts (API-Football — used)
+lib/openliga.ts (OpenLigaDB — built, unused)
+types/index.ts (FootballMatch, LineupPlayer, TeamLineup, PlayerMatchStat, etc.)
+
+## CURRENT API STACK
+Primary: API-Football (v3.football.api-sports.io)
+- Key: a55662f9fd8f568145ea17f533379e76 (in .env.local + Vercel, .env.local NOT in git)
+- Free tier: 100 req/day, seasons 2021-2023 only for player stats
+- Lineups only work for ~30 top leagues (PL, UCL, La Liga, Bundesliga, etc.)
+- Functions used: getFootballMatches, getFootballMatchById, getFixtureLineups
+
+Built but unused: OpenLigaDB (lib/openliga.ts) — keyless, Bundesliga-focused,
+but NO lineups/player stats.
+
+## NEXT PLAN (Tomorrow)
+Migrate to LiveScore MCP — keyless, 1000+ leagues, has player career stats.
+URL: https://livescoremcp.com/sse (MCP over SSE, 30 req/min, free personal use)
+
+Steps:
+1. npm install @modelcontextprotocol/sdk
+2. Create lib/livescore.ts (Client + SSEClientTransport)
+3. Create scripts/test-lsm.mjs to list tools + test health + get_live_scores
+4. Add Lsm types to types/index.ts
+5. Rewrite lib/football-api.ts to use LiveScore MCP
+6. Update pages
+7. Build app/player/[id]/page.tsx for season + career stats
+8. Remove API_FOOTBALL_KEY from Vercel + .env.local
+9. Delete old API-Football code
+
+## BUGS FIXED THIS SESSION
+- cat > file << 'EOF' pasted into nano (not terminal) → fixed by head -3 check
+- Duplicate getFixtureLineups → awk dedupe
+- Cards rendering as tiny squares → inline-styled spans (12x16px)
+- Tailwind purging tiny classes → inline styles
+
+## USER WORKFLOW (IMPORTANT)
+- Mac, no VS Code, uses nano + terminal
+- Wants COMPLETE file content, never snippets
+- Uses : > file then cat > file << 'EOF' ... EOF pattern
+- Pastes terminal output as .txt
+- Never guess — test with curl before writing code
+
+## GIT LOG (last 5)
+38532c3 Add lineups, coaches, formations
+2ca8475 Fix card/sub icons with inline styles; clean match detail layout
+eff8a72 Home page now shows live matches; player stats sections
+d79342c Add player stats, season stats, team logos, card fixes
+d08d4f8 Connect real API to football detail page
+
+## FIRST MESSAGE FOR NEXT CHAT
+"Read HANDOFF.txt in my repo. We finished lineups + coaches on the match page.
+Next: migrate to LiveScore MCP (keyless, 1000+ leagues, player career stats).
+Start with Step 1: install @modelcontextprotocol/sdk, then create lib/livescore.ts,
+then run scripts/test-lsm.mjs. I'll paste the test output for the next step."
+═══════════════════════════════════════════════════════════════════
