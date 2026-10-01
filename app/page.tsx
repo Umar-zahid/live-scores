@@ -170,7 +170,7 @@ export default async function HomePage() {
                   </div>
                 </Link>
 
-                {/* Cricket card — still placeholder until we wire the cricket API */}
+                {/* Cricket card — placeholder */}
                 <Link
                   className="group flex flex-col justify-between rounded-lg bg-surface-container-low hover:bg-surface-container transition-all duration-200 overflow-hidden shadow-md hover:shadow-xl relative text-left"
                   href="/cricket"
@@ -274,22 +274,13 @@ export default async function HomePage() {
             <span>Real-Time Multi-Sport Telemetry</span>
           </div>
           <div className="flex items-center gap-space-lg font-label-md text-label-md">
-            <Link
-              className="text-on-surface-variant hover:text-on-surface transition-colors"
-              href="#"
-            >
+            <Link className="text-on-surface-variant hover:text-on-surface transition-colors" href="#">
               Privacy Policy
             </Link>
-            <Link
-              className="text-on-surface-variant hover:text-on-surface transition-colors"
-              href="#"
-            >
+            <Link className="text-on-surface-variant hover:text-on-surface transition-colors" href="#">
               API Feeds
             </Link>
-            <Link
-              className="text-on-surface-variant hover:text-on-surface transition-colors"
-              href="#"
-            >
+            <Link className="text-on-surface-variant hover:text-on-surface transition-colors" href="#">
               Terms of Service
             </Link>
           </div>
