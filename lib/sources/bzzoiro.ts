@@ -28,6 +28,8 @@ async function fetchJson<T>(path: string, revalidate: number): Promise<T | null>
   }
 }
 
+// ---- Types ----
+
 export interface BzzoiroEvent {
   id: number;
   league_id: number;
@@ -159,6 +161,8 @@ export interface BzzoiroLeague {
   current_season: number | string;
 }
 
+// ---- Public API ----
+
 export async function getBzzoiroLiveEvents(): Promise<BzzoiroEvent[]> {
   const data = await fetchJson<{ count: number; events: BzzoiroEvent[] }>(
     '/events/live/',
@@ -169,6 +173,20 @@ export async function getBzzoiroLiveEvents(): Promise<BzzoiroEvent[]> {
 
 export async function getBzzoiroEvent(id: number | string): Promise<BzzoiroEvent | null> {
   return await fetchJson<BzzoiroEvent>(`/events/${id}/`, 30);
+}
+
+export async function getBzzoiroEventsInRange(
+  dateFrom: string,
+  dateTo: string,
+  leagueId?: number
+): Promise<BzzoiroEvent[]> {
+  const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
+  if (leagueId) params.set('league', String(leagueId));
+  const data = await fetchJson<{ count: number; results: BzzoiroEvent[] }>(
+    `/events/?${params}`,
+    60
+  );
+  return data?.results ?? [];
 }
 
 export async function getBzzoiroEventStats(

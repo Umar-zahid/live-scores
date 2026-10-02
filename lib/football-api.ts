@@ -3,11 +3,18 @@ import type { TeamLineup } from '@/types';
 import {
   getBzzoiroEventStats,
   getBzzoiroEventLineups,
+  getBzzoiroEventsInRange,
+  getBzzoiroLiveEvents,
+  getBzzoiroEvent,
+  type BzzoiroEvent,
 } from './sources/bzzoiro';
 import {
   bzzoiroStatsToFixtureStats,
   bzzoiroLineupsToTeamLineups,
 } from './sources/bzzoiro-mappers';
+import { MAJOR_LEAGUE_IDS } from './sources/leagues';
+
+// ─── API-Football (fallback + ratings source) ─────────────────────
 
 type ApiStatus = { short: string; elapsed: number | null };
 type ApiEvent = {
@@ -116,7 +123,7 @@ function normalizeMatch(raw: ApiFixture): FootballMatch {
   };
 }
 
-export async function getFootballMatches(): Promise<FootballMatch[]> {
+async function getApiFootballMatches(): Promise<FootballMatch[]> {
   if (!KEY) return [];
   try {
     const res = await fetch(`${BASE}/fixtures?live=all`, {
@@ -128,14 +135,123 @@ export async function getFootballMatches(): Promise<FootballMatch[]> {
     if (!Array.isArray(data.response)) return [];
     return data.response.map(normalizeMatch);
   } catch (err) {
-    console.error('getFootballMatches failed:', err);
+    console.error('getApiFootballMatches failed:', err);
     return [];
   }
+}
+
+// ─── Bzzoiro ──────────────────────────────────────────────────────
+
+function bzzoiroStatus(e: BzzoiroEvent): MatchStatus {
+  if (e.status === 'finished') return 'finished';
+  if (e.status === 'notstarted') return 'upcoming';
+  if (e.status === 'inprogress') {
+    const period = (e.period ?? '').toLowerCase();
+    if (period === 'ht' || period.includes('half_time') || period === 'halftime') {
+      return 'halftime';
+    }
+    return 'live';
+  }
+  return 'upcoming';
+}
+
+function normalizeBzzoiroEvent(e: BzzoiroEvent): FootballMatch {
+  return {
+    id: `bz-${e.id}`,
+    sport: 'football',
+    status: bzzoiroStatus(e),
+    league: e.league_name,
+    leagueCountry: '',
+    startTime: e.event_date,
+    homeTeam: {
+      id: e.home_team_id,
+      name: e.home_team,
+      logo: '',
+      score: e.home_score ?? 0,
+    },
+    awayTeam: {
+      id: e.away_team_id,
+      name: e.away_team,
+      logo: '',
+      score: e.away_score ?? 0,
+    },
+    minute: e.current_minute ?? undefined,
+    events: [],
+  };
+}
+
+async function getMajorLeagueMatches(): Promise<FootballMatch[]> {
+  const now = new Date();
+  // Cover: recently finished (up to 1 day ago) → live → upcoming (next 3 days)
+  const from = new Date(now.getTime() - 1 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const to = new Date(now.getTime() + 3 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+
+  const results = await Promise.all(
+    MAJOR_LEAGUE_IDS.map((id) => getBzzoiroEventsInRange(from, to, id))
+  );
+
+  const all = results.flat();
+
+  // Deduplicate by (homeId, awayId, kickoffHour)
+  const seen = new Set<string>();
+  const deduped: BzzoiroEvent[] = [];
+  for (const e of all) {
+    const key = `${e.home_team_id}-${e.away_team_id}-${e.event_date.slice(0, 13)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(e);
+  }
+
+  return deduped.map(normalizeBzzoiroEvent);
+}
+
+// ─── Public API ───────────────────────────────────────────────────
+
+export async function getFootballMatches(): Promise<FootballMatch[]> {
+  // 1. Try major leagues from Bzzoiro (unlimited, top-5 + cups)
+  try {
+    const major = await getMajorLeagueMatches();
+    if (major.length > 0) {
+      console.log(`getFootballMatches: Bzzoiro major leagues -> ${major.length}`);
+      return major;
+    }
+  } catch (err) {
+    console.error('getMajorLeagueMatches failed:', err);
+  }
+
+  // 2. Try Bzzoiro live feed (broader, includes friendlies + smaller leagues)
+  try {
+    const live = await getBzzoiroLiveEvents();
+    if (live.length > 0) {
+      console.log(`getFootballMatches: Bzzoiro live -> ${live.length}`);
+      return live.map(normalizeBzzoiroEvent);
+    }
+  } catch (err) {
+    console.error('getBzzoiroLiveEvents failed:', err);
+  }
+
+  // 3. Fall back to API-Football (lower-league live feed)
+  console.log('getFootballMatches: falling back to API-Football');
+  return getApiFootballMatches();
 }
 
 export async function getFootballMatchById(
   id: string
 ): Promise<FootballMatch | null> {
+  // Bzzoiro match
+  if (id.startsWith('bz-')) {
+    const numericId = id.slice(3);
+    try {
+      const e = await getBzzoiroEvent(numericId);
+      if (!e) return null;
+      return normalizeBzzoiroEvent(e);
+    } catch (err) {
+      console.error('getBzzoiroEvent failed:', err);
+      return null;
+    }
+  }
+
+  // API-Football match
   if (!KEY) return null;
   try {
     const res = await fetch(`${BASE}/fixtures?id=${id}`, {
@@ -157,21 +273,24 @@ export async function getFixtureLineups(
   homeLogo = '',
   awayLogo = ''
 ): Promise<TeamLineup[]> {
-  // 1) Try Bzzoiro first (unlimited, confirmed/projected lineups).
+  const isBz = fixtureId.startsWith('bz-');
+  const numericId = isBz ? fixtureId.slice(3) : fixtureId;
+
+  // Try Bzzoiro first
   try {
-    const bz = await getBzzoiroEventLineups(fixtureId);
+    const bz = await getBzzoiroEventLineups(numericId);
     if (bz && bz.lineups?.home && bz.lineups?.away) {
       const mapped = bzzoiroLineupsToTeamLineups(bz, homeLogo, awayLogo);
       if (mapped) return mapped;
     }
   } catch (err) {
-    console.error('Bzzoiro lineups failed, falling back to API-Football:', err);
+    console.error('Bzzoiro lineups failed:', err);
   }
 
-  // 2) Fall back to API-Football.
-  if (!KEY) return [];
+  // Fall back to API-Football (only for API-Football IDs)
+  if (isBz || !KEY) return [];
   try {
-    const res = await fetch(`${BASE}/fixtures/lineups?fixture=${fixtureId}`, {
+    const res = await fetch(`${BASE}/fixtures/lineups?fixture=${numericId}`, {
       headers: { 'x-apisports-key': KEY },
       next: { revalidate: 300 },
     });
@@ -207,7 +326,7 @@ export async function getFixtureLineups(
         : null,
     }));
   } catch (err) {
-    console.error('getFixtureLineups failed:', err);
+    console.error('getFixtureLineups fallback failed:', err);
     return [];
   }
 }
@@ -224,9 +343,12 @@ export async function getFixtureStatistics(
   homeTeam?: { id: number; name: string },
   awayTeam?: { id: number; name: string }
 ): Promise<FixtureStats[]> {
-  // 1) Try Bzzoiro first (40+ stats including xG, big chances, momentum).
+  const isBz = fixtureId.startsWith('bz-');
+  const numericId = isBz ? fixtureId.slice(3) : fixtureId;
+
+  // Try Bzzoiro first
   try {
-    const bz = await getBzzoiroEventStats(fixtureId);
+    const bz = await getBzzoiroEventStats(numericId);
     if (bz) {
       const mapped = bzzoiroStatsToFixtureStats(
         bz,
@@ -236,13 +358,13 @@ export async function getFixtureStatistics(
       if (mapped) return mapped;
     }
   } catch (err) {
-    console.error('Bzzoiro stats failed, falling back to API-Football:', err);
+    console.error('Bzzoiro stats failed:', err);
   }
 
-  // 2) Fall back to API-Football.
-  if (!KEY) return [];
+  // Fall back to API-Football
+  if (isBz || !KEY) return [];
   try {
-    const res = await fetch(`${BASE}/fixtures/statistics?fixture=${fixtureId}`, {
+    const res = await fetch(`${BASE}/fixtures/statistics?fixture=${numericId}`, {
       headers: { 'x-apisports-key': KEY },
       next: { revalidate: 60 },
     });
@@ -260,12 +382,12 @@ export async function getFixtureStatistics(
       })),
     }));
   } catch (err) {
-    console.error('getFixtureStatistics failed:', err);
+    console.error('getFixtureStatistics fallback failed:', err);
     return [];
   }
 }
 
-// ── Player ratings (input: /fixtures/players from API-Football) ───
+// ─── Player ratings (input: /fixtures/players from API-Football) ──
 import { calculateRating, type PlayerStats, type Position } from './ratings';
 
 export interface FixturePlayer {
@@ -314,7 +436,11 @@ function parsePassAccuracy(raw: unknown, total: number): number {
 export async function getFixturePlayers(
   fixtureId: string
 ): Promise<FixturePlayer[]> {
+  // Ratings rely on API-Football per-player stats, which requires an API-Football ID.
+  // Bzzoiro doesn't expose per-player match stats, so Bzzoiro matches show empty ratings.
+  if (fixtureId.startsWith('bz-')) return [];
   if (!KEY) return [];
+
   try {
     const res = await fetch(`${BASE}/fixtures/players?fixture=${fixtureId}`, {
       headers: { 'x-apisports-key': KEY },
@@ -412,7 +538,7 @@ export async function getFixturePlayers(
   }
 }
 
-// ── Player profile (from LiveScore MCP) ───────────────────────────
+// ─── Player profile (from LiveScore MCP) ──────────────────────────
 import { unstable_cache } from 'next/cache';
 import { lsmGetPlayer } from './livescore';
 
