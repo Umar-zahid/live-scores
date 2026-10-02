@@ -225,3 +225,22 @@ export async function getFixtureStatistics(
     return [];
   }
 }
+
+// ── Player profile (from LiveScore MCP) ───────────────────────────
+import { unstable_cache } from 'next/cache';
+import { lsmGetPlayer } from './livescore';
+
+const _playerCached = unstable_cache(
+  async (id: string) => await lsmGetPlayer(id),
+  ['lsm-player'],
+  { revalidate: 3600 }
+);
+
+export async function getPlayerProfile(id: string): Promise<any | null> {
+  try {
+    return await _playerCached(id);
+  } catch (err) {
+    console.error('getPlayerProfile failed:', err);
+    return null;
+  }
+}
