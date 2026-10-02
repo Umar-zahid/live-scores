@@ -3,6 +3,10 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 
 const SSE_URL = 'https://livescoremcp.com/sse';
 
+type ToolResult = {
+  content?: Array<{ type: string; text?: string }>;
+};
+
 let _client: Client | null = null;
 let _connecting: Promise<Client> | null = null;
 
@@ -40,12 +44,18 @@ function extractJson(text: string): any {
   }
 }
 
-async function callTool(name: string, args: Record<string, unknown>): Promise<any> {
+async function callTool(
+  name: string,
+  args: Record<string, unknown>
+): Promise<any> {
   try {
     const c = await getClient();
-    const result = await c.callTool({ name, arguments: args });
+    const result = (await c.callTool({
+      name,
+      arguments: args,
+    })) as ToolResult;
     const text =
-      result.content?.find((x: any) => x.type === 'text')?.text ?? '';
+      result.content?.find((x) => x.type === 'text')?.text ?? '';
     return extractJson(text);
   } catch (err) {
     console.error(`[livescore] ${name} failed:`, err);
