@@ -1,6 +1,13 @@
 import { FootballMatch, MatchStatus } from '@/types';
 import type { TeamLineup } from '@/types';
-import { calculateRating, type PlayerStats, type Position } from './ratings';
+import {
+  getBzzoiroEventStats,
+  getBzzoiroEventLineups,
+} from './sources/bzzoiro';
+import {
+  bzzoiroStatsToFixtureStats,
+  bzzoiroLineupsToTeamLineups,
+} from './sources/bzzoiro-mappers';
 
 type ApiStatus = { short: string; elapsed: number | null };
 type ApiEvent = {
@@ -146,8 +153,22 @@ export async function getFootballMatchById(
 }
 
 export async function getFixtureLineups(
-  fixtureId: string
+  fixtureId: string,
+  homeLogo = '',
+  awayLogo = ''
 ): Promise<TeamLineup[]> {
+  // 1) Try Bzzoiro first (unlimited, confirmed/projected lineups).
+  try {
+    const bz = await getBzzoiroEventLineups(fixtureId);
+    if (bz && bz.lineups?.home && bz.lineups?.away) {
+      const mapped = bzzoiroLineupsToTeamLineups(bz, homeLogo, awayLogo);
+      if (mapped) return mapped;
+    }
+  } catch (err) {
+    console.error('Bzzoiro lineups failed, falling back to API-Football:', err);
+  }
+
+  // 2) Fall back to API-Football.
   if (!KEY) return [];
   try {
     const res = await fetch(`${BASE}/fixtures/lineups?fixture=${fixtureId}`, {
@@ -199,8 +220,26 @@ export type FixtureStats = {
 };
 
 export async function getFixtureStatistics(
-  fixtureId: string
+  fixtureId: string,
+  homeTeam?: { id: number; name: string },
+  awayTeam?: { id: number; name: string }
 ): Promise<FixtureStats[]> {
+  // 1) Try Bzzoiro first (40+ stats including xG, big chances, momentum).
+  try {
+    const bz = await getBzzoiroEventStats(fixtureId);
+    if (bz) {
+      const mapped = bzzoiroStatsToFixtureStats(
+        bz,
+        homeTeam ?? { id: 0, name: 'Home' },
+        awayTeam ?? { id: 1, name: 'Away' }
+      );
+      if (mapped) return mapped;
+    }
+  } catch (err) {
+    console.error('Bzzoiro stats failed, falling back to API-Football:', err);
+  }
+
+  // 2) Fall back to API-Football.
   if (!KEY) return [];
   try {
     const res = await fetch(`${BASE}/fixtures/statistics?fixture=${fixtureId}`, {
@@ -226,6 +265,9 @@ export async function getFixtureStatistics(
   }
 }
 
+// ── Player ratings (input: /fixtures/players from API-Football) ───
+import { calculateRating, type PlayerStats, type Position } from './ratings';
+
 export interface FixturePlayer {
   playerId: number;
   playerName: string;
@@ -245,16 +287,11 @@ export interface FixturePlayer {
 
 function mapPosition(raw: string): Position | 'UNKNOWN' {
   switch (raw) {
-    case 'G':
-      return 'GK';
-    case 'D':
-      return 'DEF';
-    case 'M':
-      return 'MID';
-    case 'F':
-      return 'FWD';
-    default:
-      return 'UNKNOWN';
+    case 'G': return 'GK';
+    case 'D': return 'DEF';
+    case 'M': return 'MID';
+    case 'F': return 'FWD';
+    default: return 'UNKNOWN';
   }
 }
 
@@ -375,6 +412,7 @@ export async function getFixturePlayers(
   }
 }
 
+// ── Player profile (from LiveScore MCP) ───────────────────────────
 import { unstable_cache } from 'next/cache';
 import { lsmGetPlayer } from './livescore';
 

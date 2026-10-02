@@ -69,8 +69,12 @@ export default async function MatchDetailPage({
   }
 
   const [lineups, stats, players] = await Promise.all([
-    getFixtureLineups(params.id),
-    getFixtureStatistics(params.id),
+    getFixtureLineups(params.id, match.homeTeam.logo, match.awayTeam.logo),
+    getFixtureStatistics(
+      params.id,
+      { id: match.homeTeam.id, name: match.homeTeam.name },
+      { id: match.awayTeam.id, name: match.awayTeam.name }
+    ),
     getFixturePlayers(params.id),
   ]);
 
