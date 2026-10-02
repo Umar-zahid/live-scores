@@ -208,31 +208,60 @@ async function getMajorLeagueMatches(): Promise<FootballMatch[]> {
 // ─── Public API ───────────────────────────────────────────────────
 
 export async function getFootballMatches(): Promise<FootballMatch[]> {
-  // 1. Try major leagues from Bzzoiro (unlimited, top-5 + cups)
-  try {
-    const major = await getMajorLeagueMatches();
-    if (major.length > 0) {
-      console.log(`getFootballMatches: Bzzoiro major leagues -> ${major.length}`);
-      return major;
-    }
-  } catch (err) {
-    console.error('getMajorLeagueMatches failed:', err);
+  // Fetch both sources in parallel: scheduled major-league fixtures
+  // AND the global live feed. Merge them so live matches always surface.
+  const [majorRes, liveRes] = await Promise.allSettled([
+    getMajorLeagueMatches(),
+    getBzzoiroLiveEvents().then((events) => events.map(normalizeBzzoiroEvent)),
+  ]);
+
+  const majorArr = majorRes.status === 'fulfilled' ? majorRes.value : [];
+  const liveArr = liveRes.status === 'fulfilled' ? liveRes.value : [];
+
+  // Deduplicate by (home team, away team, kickoff hour).
+  // Insertion order: live feed first, then major leagues overwrite on conflict
+  // (major-league rows have richer metadata like round info).
+  const byKey = new Map<string, FootballMatch>();
+  const keyOf = (m: FootballMatch) =>
+    `${m.homeTeam.name.toLowerCase()}|${m.awayTeam.name.toLowerCase()}|${m.startTime.slice(0, 13)}`;
+
+  for (const m of liveArr) byKey.set(keyOf(m), m);
+  for (const m of majorArr) byKey.set(keyOf(m), m);
+
+  let merged = Array.from(byKey.values());
+
+  // Only call API-Football if Bzzoiro gave us nothing at all.
+  if (merged.length === 0) {
+    console.log('getFootballMatches: nothing from Bzzoiro, falling back to API-Football');
+    merged = await getApiFootballMatches();
   }
 
-  // 2. Try Bzzoiro live feed (broader, includes friendlies + smaller leagues)
-  try {
-    const live = await getBzzoiroLiveEvents();
-    if (live.length > 0) {
-      console.log(`getFootballMatches: Bzzoiro live -> ${live.length}`);
-      return live.map(normalizeBzzoiroEvent);
+  // Sort: live > halftime > upcoming (soonest first) > finished (most recent first).
+  const order: Record<MatchStatus, number> = {
+    live: 0,
+    halftime: 1,
+    upcoming: 2,
+    finished: 3,
+  };
+  merged.sort((a, b) => {
+    const sa = order[a.status] ?? 4;
+    const sb = order[b.status] ?? 4;
+    if (sa !== sb) return sa - sb;
+    if (a.status === 'upcoming') {
+      return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
     }
-  } catch (err) {
-    console.error('getBzzoiroLiveEvents failed:', err);
-  }
+    if (a.status === 'finished') {
+      return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
+    }
+    return 0;
+  });
 
-  // 3. Fall back to API-Football (lower-league live feed)
-  console.log('getFootballMatches: falling back to API-Football');
-  return getApiFootballMatches();
+  const liveCount = merged.filter((m) => m.status === 'live' || m.status === 'halftime').length;
+  console.log(
+    `getFootballMatches: merged=${merged.length} (major=${majorArr.length}, live=${liveArr.length}, liveFinal=${liveCount})`
+  );
+
+  return merged;
 }
 
 export async function getFootballMatchById(
