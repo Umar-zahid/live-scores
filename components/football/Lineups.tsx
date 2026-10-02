@@ -1,146 +1,186 @@
 import type { TeamLineup, LineupPlayer } from '@/types';
 
 const posLabel: Record<string, string> = {
-  G: 'GK',
-  D: 'DEF',
-  M: 'MID',
-  F: 'FWD',
+  G: 'GK', D: 'DEF', M: 'MID', F: 'FWD',
 };
 
-function PlayerRow({ player }: { player: LineupPlayer }) {
+// Group players by grid row. grid = "row:col" (e.g. "2:3")
+function layoutStartXI(players: LineupPlayer[]): LineupPlayer[][] {
+  const withGrid = players.filter((p) => p.grid);
+  if (!withGrid.length) {
+    // No grid data — group by position
+    const groups: Record<string, LineupPlayer[]> = {
+      G: [], D: [], M: [], F: [],
+    };
+    for (const p of players) {
+      (groups[p.position] ?? (groups[p.position] = [])).push(p);
+    }
+    return [groups.G ?? [], groups.D ?? [], groups.M ?? [], groups.F ?? []].filter(
+      (g) => g.length
+    );
+  }
+
+  const rows = new Map<number, LineupPlayer[]>();
+  for (const p of withGrid) {
+    const row = parseInt(p.grid!.split(':')[0] ?? '0', 10);
+    if (!rows.has(row)) rows.set(row, []);
+    rows.get(row)!.push(p);
+  }
+  return Array.from(rows.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([, arr]) =>
+      arr.sort((a, b) => {
+        const ca = parseInt(a.grid!.split(':')[1] ?? '0', 10);
+        const cb = parseInt(b.grid!.split(':')[1] ?? '0', 10);
+        return ca - cb;
+      })
+    );
+}
+
+function PlayerDot({ p }: { p: LineupPlayer }) {
   return (
-    <div className="flex items-center gap-2 py-1.5 border-b border-surface-container-highest/20 last:border-0">
-      <span
-        className="shrink-0 flex items-center justify-center font-bold text-[10px] md:text-xs tabular-nums"
+    <div className="flex flex-col items-center gap-1 min-w-[52px] md:min-w-[64px]">
+      <div
+        className="flex items-center justify-center font-black text-[10px] md:text-xs"
         style={{
-          width: 22,
-          height: 22,
-          borderRadius: 6,
-          background: '#191f31',
-          color: '#bccbb9',
+          width: 30,
+          height: 30,
+          borderRadius: '50%',
+          background: '#070d1f',
+          color: '#dce1fb',
+          border: '2px solid #4be277',
+          boxShadow: '0 0 0 2px rgba(75,226,119,0.15)',
         }}
       >
-        {player.number ?? '–'}
-      </span>
-      <span className="flex-1 min-w-0 text-[11px] md:text-sm text-on-surface truncate">
-        {player.name}
-      </span>
-      {player.position && (
-        <span className="text-[9px] md:text-[10px] text-on-surface-variant uppercase tracking-wider shrink-0">
-          {posLabel[player.position] ?? player.position}
-        </span>
-      )}
+        {p.number ?? '–'}
+      </div>
+      <div className="text-[9px] md:text-[10px] text-on-surface text-center leading-tight max-w-[64px] truncate">
+        {p.name.split(' ').slice(-1)[0]}
+      </div>
     </div>
   );
 }
 
-function TeamColumn({ lineup, side }: { lineup: TeamLineup; side: 'home' | 'away' }) {
+function Pitch({ lineup, side }: { lineup: TeamLineup; side: 'home' | 'away' }) {
+  const rows = layoutStartXI(lineup.startXI);
   const accent = side === 'home' ? '#4be277' : '#adc6ff';
-  const accentBg = side === 'home' ? 'rgba(75,226,119,0.12)' : 'rgba(173,198,255,0.12)';
 
   return (
-    <div className="flex flex-col gap-3">
+    <div
+      className="relative rounded-lg overflow-hidden"
+      style={{
+        background:
+          'linear-gradient(180deg, #0d2818 0%, #0d2818 50%, #0a2013 50%, #0a2013 100%)',
+        padding: '16px 8px',
+        minHeight: 380,
+      }}
+    >
+      {/* Halfway line */}
+      <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-white/10" />
+      {/* Center circle */}
       <div
-        className="rounded-lg p-2.5 md:p-3 border border-surface-container-highest/40"
-        style={{ background: accentBg }}
-      >
-        <div className="flex items-center gap-2">
-          {lineup.teamLogo ? (
-            <img
-              src={lineup.teamLogo}
-              alt=""
-              className="w-6 h-6 md:w-8 md:h-8 object-contain shrink-0"
-            />
-          ) : (
-            <div className="w-6 h-6 md:w-8 md:h-8 rounded bg-surface-container-high shrink-0" />
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="text-[12px] md:text-sm font-extrabold text-on-surface truncate">
-              {lineup.teamName}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10"
+        style={{ width: 60, height: 60 }}
+      />
+
+      <div className="relative flex flex-col justify-between h-full gap-3">
+        {side === 'home' ? (
+          // Home: keepers at top, forwards near middle
+          rows.map((row, i) => (
+            <div key={i} className="flex justify-around items-start">
+              {row.map((p) => <PlayerDot key={p.id} p={p} />)}
             </div>
-            {lineup.formation && (
-              <div
-                className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider"
-                style={{ color: accent }}
-              >
-                Formation · {lineup.formation}
-              </div>
-            )}
-          </div>
-        </div>
+          ))
+        ) : (
+          // Away: mirrored vertically
+          [...rows].reverse().map((row, i) => (
+            <div key={i} className="flex justify-around items-start">
+              {row.map((p) => <PlayerDot key={p.id} p={p} />)}
+            </div>
+          ))
+        )}
       </div>
 
-      {lineup.coach && (
-        <div className="rounded-lg bg-surface-container/50 border border-surface-container-highest/30 p-2.5 md:p-3">
-          <div className="text-[9px] md:text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-2">
-            Coach
-          </div>
-          <div className="flex items-center gap-2">
-            {lineup.coach.photo ? (
-              <img
-                src={lineup.coach.photo}
-                alt=""
-                className="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover bg-surface-container-high shrink-0"
-              />
-            ) : (
-              <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-surface-container-high shrink-0" />
-            )}
-            <span className="text-[11px] md:text-sm font-semibold text-on-surface truncate">
-              {lineup.coach.name}
-            </span>
-          </div>
-        </div>
-      )}
+      <div
+        className="absolute top-2 left-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
+        style={{ background: accent + '22', color: accent }}
+      >
+        {lineup.teamName}
+        {lineup.formation ? ` · ${lineup.formation}` : ''}
+      </div>
+    </div>
+  );
+}
 
-      {lineup.startXI.length > 0 && (
-        <div className="rounded-lg bg-surface-container/50 border border-surface-container-highest/30 p-2.5 md:p-3">
-          <div className="text-[9px] md:text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-2">
-            Starting XI · {lineup.startXI.length}
-          </div>
-          <div className="flex flex-col">
-            {lineup.startXI.map((p) => (
-              <PlayerRow key={p.id} player={p} />
-            ))}
-          </div>
-        </div>
-      )}
+function BenchList({ players }: { players: LineupPlayer[] }) {
+  if (!players.length) return null;
+  return (
+    <div className="rounded-lg bg-surface-container/40 border border-surface-container-highest/30 p-3">
+      <div className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-2">
+        Substitutes · {players.length}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {players.map((p) => (
+          <span
+            key={p.id}
+            className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-surface-container-high/60 text-[11px] text-on-surface"
+          >
+            <span className="text-outline text-[10px]">{p.number ?? '–'}</span>
+            {p.name}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-      {lineup.substitutes.length > 0 && (
-        <div className="rounded-lg bg-surface-container/50 border border-surface-container-highest/30 p-2.5 md:p-3">
-          <div className="text-[9px] md:text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-2">
-            Substitutes · {lineup.substitutes.length}
-          </div>
-          <div className="flex flex-col">
-            {lineup.substitutes.map((p) => (
-              <PlayerRow key={p.id} player={p} />
-            ))}
-          </div>
-        </div>
-      )}
+function CoachCard({ coach }: { coach: { name: string; photo: string } }) {
+  return (
+    <div className="rounded-lg bg-surface-container/40 border border-surface-container-highest/30 p-3">
+      <div className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mb-2">
+        Coach
+      </div>
+      <div className="flex items-center gap-2">
+        {coach.photo ? (
+          <img
+            src={coach.photo}
+            alt=""
+            className="w-8 h-8 rounded-full object-cover bg-surface-container-high"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-surface-container-high" />
+        )}
+        <span className="text-sm font-semibold text-on-surface truncate">
+          {coach.name}
+        </span>
+      </div>
     </div>
   );
 }
 
 export default function Lineups({ lineups }: { lineups: TeamLineup[] }) {
   if (!lineups.length) return null;
-
   const [home, away] = lineups;
 
   return (
-    <section className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-3 sm:p-4 md:p-5 shadow-lg">
-      <div className="flex items-center gap-1.5 md:gap-2 pb-2.5 md:pb-3 mb-3 md:mb-4 border-b border-surface-container-highest/40">
-        <span className="material-symbols-outlined text-[16px] md:text-[20px] text-primary">
-          groups
-        </span>
-        <h2 className="text-sm md:text-lg font-extrabold uppercase tracking-tight text-on-surface">
-          Lineups &amp; Coaches
-        </h2>
+    <div className="flex flex-col gap-4">
+      {/* Pitch view — home & away side by side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {home && <Pitch lineup={home} side="home" />}
+        {away && <Pitch lineup={away} side="away" />}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
-        {home && <TeamColumn lineup={home} side="home" />}
-        {away && <TeamColumn lineup={away} side="away" />}
+      {/* Coaches */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {home?.coach && <CoachCard coach={home.coach} />}
+        {away?.coach && <CoachCard coach={away.coach} />}
       </div>
-    </section>
+
+      {/* Bench */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {home && <BenchList players={home.substitutes} />}
+        {away && <BenchList players={away.substitutes} />}
+      </div>
+    </div>
   );
 }

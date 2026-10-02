@@ -1,11 +1,7 @@
 import { FootballMatch, MatchStatus } from '@/types';
-import type { TeamLineup, LineupPlayer, LineupCoach } from '@/types';
+import type { TeamLineup } from '@/types';
 
-type ApiStatus = {
-  short: string;
-  elapsed: number | null;
-};
-
+type ApiStatus = { short: string; elapsed: number | null };
 type ApiEvent = {
   time: { elapsed: number | null; extra: number | null };
   team: { id: number };
@@ -14,7 +10,6 @@ type ApiEvent = {
   type: string;
   detail: string;
 };
-
 type ApiFixture = {
   fixture: {
     id: number;
@@ -31,47 +26,30 @@ type ApiFixture = {
   goals: { home: number | null; away: number | null };
   events: ApiEvent[];
 };
+type ApiResponse = { results: number; response: ApiFixture[] };
 
-type ApiResponse = {
-  results: number;
-  response: ApiFixture[];
-};
+const KEY = process.env.API_FOOTBALL_KEY;
+const BASE = 'https://v3.football.api-sports.io';
 
-// ── Status mapping with time-based sanity check ──────────────────
-// The API keeps returning "2H" for a few minutes after full time.
-// We cross-check with kickoff time to force-correct it.
 function computeStatus(raw: ApiFixture): MatchStatus {
   const s = raw.fixture.status.short;
-
-  // Explicit finished states
   if (['FT', 'AET', 'PEN', 'ABD', 'AWD', 'WO'].includes(s)) return 'finished';
-
-  // Explicit not-started states
   if (['NS', 'TBD', 'PST', 'CANC'].includes(s)) return 'upcoming';
 
-  // Halftime — trust it but still sanity-check
-  if (s === 'HT') {
-    const elapsed = (Date.now() - new Date(raw.fixture.date).getTime()) / 60000;
-    if (elapsed > 130) return 'finished';
-    return 'halftime';
-  }
-
-  // Live family — sanity-check against elapsed real time
+  const elapsed = (Date.now() - new Date(raw.fixture.date).getTime()) / 60000;
+  if (s === 'HT') return elapsed > 130 ? 'finished' : 'halftime';
   if (['1H', '2H', 'ET', 'BT', 'P', 'LIVE', 'SUSP', 'INT'].includes(s)) {
-    const elapsed = (Date.now() - new Date(raw.fixture.date).getTime()) / 60000;
-    // 45 + 15 (HT) + 45 + stoppage (~25) = 130 minutes max realistic
     if (elapsed > 130) return 'finished';
     return 'live';
   }
-
   return 'upcoming';
 }
 
 function computeMinute(raw: ApiFixture): number | undefined {
   const api = raw.fixture.status.elapsed;
   if (api != null) return api;
-  if (raw.fixture.status.short === 'HT') return 45;
-
+  const s = raw.fixture.status.short;
+  if (s === 'HT') return 45;
   const elapsed = Math.floor(
     (Date.now() - new Date(raw.fixture.date).getTime()) / 60000
   );
@@ -91,7 +69,6 @@ function mapEventType(type: string, detail: string): string {
 
 function normalizeMatch(raw: ApiFixture): FootballMatch {
   const homeId = raw.teams.home.id;
-
   const events = (raw.events || []).map((e) => ({
     minute: e.time.elapsed ?? 0,
     type: mapEventType(e.type, e.detail),
@@ -132,29 +109,18 @@ function normalizeMatch(raw: ApiFixture): FootballMatch {
 }
 
 export async function getFootballMatches(): Promise<FootballMatch[]> {
-  const key = process.env.API_FOOTBALL_KEY;
-  if (!key) {
-    console.error('Missing API_FOOTBALL_KEY in environment');
-    return [];
-  }
-
+  if (!KEY) return [];
   try {
-    const res = await fetch(
-      'https://v3.football.api-sports.io/fixtures?live=all',
-      {
-        headers: { 'x-apisports-key': key },
-        next: { revalidate: 15 },
-      }
-    );
-    if (!res.ok) {
-      console.error(`API error: ${res.status} ${res.statusText}`);
-      return [];
-    }
+    const res = await fetch(`${BASE}/fixtures?live=all`, {
+      headers: { 'x-apisports-key': KEY },
+      next: { revalidate: 15 },
+    });
+    if (!res.ok) return [];
     const data: ApiResponse = await res.json();
-    if (!data.response || !Array.isArray(data.response)) return [];
+    if (!Array.isArray(data.response)) return [];
     return data.response.map(normalizeMatch);
   } catch (err) {
-    console.error('Football API fetch failed:', err);
+    console.error('getFootballMatches failed:', err);
     return [];
   }
 }
@@ -162,25 +128,18 @@ export async function getFootballMatches(): Promise<FootballMatch[]> {
 export async function getFootballMatchById(
   id: string
 ): Promise<FootballMatch | null> {
-  const key = process.env.API_FOOTBALL_KEY;
-  if (!key) return null;
-
+  if (!KEY) return null;
   try {
-    const res = await fetch(
-      `https://v3.football.api-sports.io/fixtures?id=${id}`,
-      {
-        headers: { 'x-apisports-key': key },
-        next: { revalidate: 15 },
-      }
-    );
+    const res = await fetch(`${BASE}/fixtures?id=${id}`, {
+      headers: { 'x-apisports-key': KEY },
+      next: { revalidate: 15 },
+    });
     if (!res.ok) return null;
     const data: ApiResponse = await res.json();
-    if (!data.response || !Array.isArray(data.response) || !data.response.length) {
-      return null;
-    }
+    if (!data.response?.length) return null;
     return normalizeMatch(data.response[0]);
   } catch (err) {
-    console.error('Football API fetch failed:', err);
+    console.error('getFootballMatchById failed:', err);
     return null;
   }
 }
@@ -188,17 +147,12 @@ export async function getFootballMatchById(
 export async function getFixtureLineups(
   fixtureId: string
 ): Promise<TeamLineup[]> {
-  const key = process.env.API_FOOTBALL_KEY;
-  if (!key) return [];
-
+  if (!KEY) return [];
   try {
-    const res = await fetch(
-      `https://v3.football.api-sports.io/fixtures/lineups?fixture=${fixtureId}`,
-      {
-        headers: { 'x-apisports-key': key },
-        next: { revalidate: 300 },
-      }
-    );
+    const res = await fetch(`${BASE}/fixtures/lineups?fixture=${fixtureId}`, {
+      headers: { 'x-apisports-key': KEY },
+      next: { revalidate: 300 },
+    });
     if (!res.ok) return [];
     const data = await res.json();
     if (!Array.isArray(data.response)) return [];
@@ -231,7 +185,43 @@ export async function getFixtureLineups(
         : null,
     }));
   } catch (err) {
-    console.error('Fixture lineups failed:', err);
+    console.error('getFixtureLineups failed:', err);
+    return [];
+  }
+}
+
+// ── Fixture statistics ────────────────────────────────────────────
+export type FixtureStats = {
+  teamId: number;
+  teamName: string;
+  teamLogo: string;
+  stats: { type: string; value: string | number | null }[];
+};
+
+export async function getFixtureStatistics(
+  fixtureId: string
+): Promise<FixtureStats[]> {
+  if (!KEY) return [];
+  try {
+    const res = await fetch(`${BASE}/fixtures/statistics?fixture=${fixtureId}`, {
+      headers: { 'x-apisports-key': KEY },
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!Array.isArray(data.response)) return [];
+
+    return data.response.map((block: any) => ({
+      teamId: block.team?.id ?? 0,
+      teamName: block.team?.name ?? '',
+      teamLogo: block.team?.logo ?? '',
+      stats: (block.statistics ?? []).map((s: any) => ({
+        type: s.type ?? '',
+        value: s.value ?? null,
+      })),
+    }));
+  } catch (err) {
+    console.error('getFixtureStatistics failed:', err);
     return [];
   }
 }
