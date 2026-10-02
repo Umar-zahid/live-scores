@@ -1,5 +1,6 @@
 import { FootballMatch, MatchStatus } from '@/types';
 import type { TeamLineup } from '@/types';
+import { calculateRating, type PlayerStats, type Position } from './ratings';
 
 type ApiStatus = { short: string; elapsed: number | null };
 type ApiEvent = {
@@ -190,7 +191,6 @@ export async function getFixtureLineups(
   }
 }
 
-// ── Fixture statistics ────────────────────────────────────────────
 export type FixtureStats = {
   teamId: number;
   teamName: string;
@@ -226,7 +226,155 @@ export async function getFixtureStatistics(
   }
 }
 
-// ── Player profile (from LiveScore MCP) ───────────────────────────
+export interface FixturePlayer {
+  playerId: number;
+  playerName: string;
+  playerPhoto: string;
+  number: number | null;
+  teamId: number;
+  teamName: string;
+  teamLogo: string;
+  team: 'home' | 'away';
+  position: string;
+  positionGroup: Position | 'UNKNOWN';
+  minutes: number;
+  substitute: boolean;
+  rating: number;
+  stats: PlayerStats;
+}
+
+function mapPosition(raw: string): Position | 'UNKNOWN' {
+  switch (raw) {
+    case 'G':
+      return 'GK';
+    case 'D':
+      return 'DEF';
+    case 'M':
+      return 'MID';
+    case 'F':
+      return 'FWD';
+    default:
+      return 'UNKNOWN';
+  }
+}
+
+function num(v: unknown): number {
+  if (v === null || v === undefined) return 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parsePassAccuracy(raw: unknown, total: number): number {
+  if (raw === null || raw === undefined) return 0;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  if (n <= 1) return n;
+  if (n >= 40) return n / 100;
+  if (total > 0 && n <= total) return n / total;
+  return n / 100;
+}
+
+export async function getFixturePlayers(
+  fixtureId: string
+): Promise<FixturePlayer[]> {
+  if (!KEY) return [];
+  try {
+    const res = await fetch(`${BASE}/fixtures/players?fixture=${fixtureId}`, {
+      headers: { 'x-apisports-key': KEY },
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!Array.isArray(data.response)) return [];
+    if (data.response.length < 2) return [];
+
+    const homeTeamId = data.response[0]?.team?.id;
+    const out: FixturePlayer[] = [];
+
+    for (const block of data.response) {
+      const teamId = block.team?.id ?? 0;
+      const teamName = block.team?.name ?? '';
+      const teamLogo = block.team?.logo ?? '';
+      const team: 'home' | 'away' = teamId === homeTeamId ? 'home' : 'away';
+
+      for (const entry of block.players ?? []) {
+        const p = entry.player ?? {};
+        const s = entry.statistics?.[0] ?? {};
+        const games = s.games ?? {};
+        const goals = s.goals ?? {};
+        const shots = s.shots ?? {};
+        const passes = s.passes ?? {};
+        const tackles = s.tackles ?? {};
+        const duels = s.duels ?? {};
+        const dribbles = s.dribbles ?? {};
+        const fouls = s.fouls ?? {};
+        const cards = s.cards ?? {};
+        const penalty = s.penalty ?? {};
+
+        const minutes = num(games.minutes);
+        const goalsConceded = num(goals.conceded);
+        const passesTotal = num(passes.total);
+
+        const stats: PlayerStats = {
+          minutes,
+          goals: num(goals.total),
+          ownGoals: 0,
+          assists: num(goals.assists),
+          keyPasses: num(passes.key),
+          foulsDrawn: num(fouls.drawn),
+          foulsCommitted: num(fouls.committed),
+          yellowCards: num(cards.yellow),
+          redCards: num(cards.red),
+          penaltyMissed: num(penalty.missed),
+          shotsTotal: num(shots.total),
+          shotsOn: num(shots.on),
+          passesTotal,
+          passesAccuracy: parsePassAccuracy(passes.accuracy, passesTotal),
+          tackles: num(tackles.total),
+          blocks: num(tackles.blocks),
+          interceptions: num(tackles.interceptions),
+          duelsTotal: num(duels.total),
+          duelsWon: num(duels.won),
+          dribblesAttempts: num(dribbles.attempts),
+          dribblesSuccess: num(dribbles.success),
+          saves: num(goals.saves),
+          penaltySaved: num(penalty.saved),
+          goalsConceded,
+          cleanSheet: minutes >= 60 && goalsConceded === 0,
+        };
+
+        const positionGroup = mapPosition(games.position ?? '');
+        const rating =
+          positionGroup === 'UNKNOWN'
+            ? 6.0
+            : calculateRating(stats, positionGroup);
+
+        out.push({
+          playerId: p.id ?? 0,
+          playerName: p.name ?? 'Unknown',
+          playerPhoto: p.photo ?? '',
+          number: games.number ?? null,
+          teamId,
+          teamName,
+          teamLogo,
+          team,
+          position: games.position ?? '',
+          positionGroup,
+          minutes,
+          substitute: Boolean(games.substitute),
+          rating,
+          stats,
+        });
+      }
+    }
+
+    return out;
+  } catch (err) {
+    console.error('getFixturePlayers failed:', err);
+    return [];
+  }
+}
+
 import { unstable_cache } from 'next/cache';
 import { lsmGetPlayer } from './livescore';
 

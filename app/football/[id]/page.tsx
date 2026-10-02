@@ -3,6 +3,7 @@ import {
   getFootballMatchById,
   getFixtureLineups,
   getFixtureStatistics,
+  getFixturePlayers,
 } from '@/lib/football-api';
 import MatchTabs from '@/components/football/MatchTabs';
 
@@ -67,9 +68,10 @@ export default async function MatchDetailPage({
     );
   }
 
-  const [lineups, stats] = await Promise.all([
+  const [lineups, stats, players] = await Promise.all([
     getFixtureLineups(params.id),
     getFixtureStatistics(params.id),
+    getFixturePlayers(params.id),
   ]);
 
   const isLive = match.status === 'live';
@@ -99,7 +101,6 @@ export default async function MatchDetailPage({
             </Link>
           </div>
 
-          {/* Score header */}
           <section className="relative overflow-hidden rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 shadow-xl p-3 sm:p-4 md:p-6">
             <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between pb-2.5 md:pb-3 mb-2.5 md:mb-3 border-b border-surface-container-highest/30">
               <div className="flex items-center gap-1.5 text-on-surface-variant text-[10px] md:text-xs uppercase tracking-widest min-w-0">
@@ -217,8 +218,7 @@ export default async function MatchDetailPage({
             )}
           </section>
 
-          {/* Tabs: Overview / Lineups / Stats */}
-          <MatchTabs match={match} lineups={lineups} stats={stats} />
+          <MatchTabs match={match} lineups={lineups} stats={stats} players={players} />
         </div>
       </main>
     </div>
