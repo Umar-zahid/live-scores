@@ -1,241 +1,12 @@
 import Link from 'next/link';
-import { FootballMatch } from '@/types';
 import { getFootballMatches } from '@/lib/football-api';
-
-const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  });
-
-const statusStyle = {
-  live: {
-    bar: 'bg-primary shadow-[0_0_8px_rgba(75,226,119,0.7)]',
-    hover: 'hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5',
-    bullet: 'text-primary',
-    titleHover: 'group-hover:text-primary',
-  },
-  halftime: {
-    bar: 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]',
-    hover: 'hover:border-amber-500/40',
-    bullet: 'text-on-surface-variant',
-    titleHover: 'group-hover:text-amber-400',
-  },
-  upcoming: {
-    bar: 'bg-slate-600',
-    hover: 'opacity-95 hover:opacity-100',
-    bullet: 'text-outline',
-    titleHover: 'group-hover:text-primary',
-  },
-  finished: {
-    bar: 'bg-outline-variant',
-    hover: '',
-    bullet: 'text-outline',
-    titleHover: '',
-  },
-} as const;
-
-function StatusBadge({ match }: { match: FootballMatch }) {
-  if (match.status === 'live') {
-    return (
-      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-error-container/20 border border-error/30 shrink-0">
-        <span className="relative flex h-1.5 w-1.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-error"></span>
-        </span>
-        <span className="font-label-sm text-[9px] sm:text-label-sm text-error uppercase font-extrabold tracking-wider">
-          {`LIVE ${match.minute ?? ''}'`}
-        </span>
-      </div>
-    );
-  }
-  if (match.status === 'halftime') {
-    return (
-      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-        <span className="font-label-sm text-[9px] sm:text-label-sm text-amber-400 uppercase font-extrabold tracking-wider">
-          HT
-        </span>
-      </div>
-    );
-  }
-  if (match.status === 'upcoming') {
-    return (
-      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-high border border-surface-container-highest shrink-0">
-        <span className="material-symbols-outlined text-outline text-[12px]">
-          schedule
-        </span>
-        <span className="font-label-sm text-[9px] sm:text-label-sm text-on-surface-variant uppercase font-bold tracking-wider">
-          {formatTime(match.startTime)}
-        </span>
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-high/90 border border-surface-container-highest shrink-0">
-      <span className="w-1.5 h-1.5 rounded-full bg-outline"></span>
-      <span className="font-label-sm text-[9px] sm:text-label-sm text-on-surface-variant uppercase font-bold tracking-wider">
-        FT
-      </span>
-    </div>
-  );
-}
-
-function MatchRow({ match }: { match: FootballMatch }) {
-  const { homeTeam, awayTeam } = match;
-  const style = statusStyle[match.status] ?? statusStyle.upcoming;
-  const isUpcoming = match.status === 'upcoming';
-  const isFinished = match.status === 'finished';
-  const homeWon = isFinished && homeTeam.score > awayTeam.score;
-  const awayWon = isFinished && awayTeam.score > homeTeam.score;
-
-  return (
-    <Link
-      href={`/football/${match.id}`}
-      className={`match-card group relative block bg-surface-container-low/40 backdrop-blur-sm border border-surface-container-highest/40 rounded-lg p-3 md:p-5 overflow-hidden transition-all duration-200 hover:bg-surface-container-low/60 ${style.hover}`}
-    >
-      <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${style.bar}`}></div>
-
-      {/* League + status row */}
-      <div className="flex items-center justify-between gap-2 pb-2.5 md:pb-3.5 border-b border-surface-container-highest/40">
-        <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
-          <span className={`${style.bullet} text-[10px] font-bold shrink-0`}>•</span>
-          {match.leagueLogo && (
-            <img
-              src={match.leagueLogo}
-              alt=""
-              className="w-3.5 h-3.5 md:w-4 md:h-4 object-contain shrink-0"
-            />
-          )}
-          <span className="font-label-sm text-[9px] sm:text-label-sm text-on-surface-variant tracking-wider uppercase font-semibold truncate">
-            {match.league}
-          </span>
-        </div>
-        <StatusBadge match={match} />
-      </div>
-
-      {/* Teams + score */}
-      <div className="py-3 md:py-4 grid grid-cols-12 items-center gap-1 md:gap-2">
-        {/* Home */}
-        <div className="col-span-5 flex items-center justify-end gap-1.5 md:gap-3 text-right min-w-0">
-          <div className="min-w-0 flex items-center justify-end gap-1 md:gap-1.5">
-            {homeWon && (
-              <span className="material-symbols-outlined text-primary text-[14px] shrink-0 hidden sm:inline">
-                check_circle
-              </span>
-            )}
-            <p
-              className={`text-[12px] sm:text-sm md:text-headline-md text-on-surface tracking-tight truncate font-extrabold transition-colors ${style.titleHover}`}
-            >
-              {homeTeam.name}
-            </p>
-          </div>
-          <div className="w-7 h-7 md:w-10 md:h-10 rounded-full bg-surface-container-highest border border-surface-container flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
-            {homeTeam.logo ? (
-              <img
-                src={homeTeam.logo}
-                alt={homeTeam.name}
-                className="w-5 h-5 md:w-7 md:h-7 object-contain"
-              />
-            ) : (
-              <span className="text-[10px] md:text-headline-md font-black text-primary">
-                {homeTeam.name.slice(0, 3).toUpperCase()}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Score */}
-        <div className="col-span-2 flex flex-col items-center justify-center">
-          <div
-            className={`flex items-center justify-center gap-1 md:gap-2 px-1.5 md:px-3 py-0.5 md:py-1 rounded border ${
-              isUpcoming
-                ? 'bg-surface-container-lowest/50 border-surface-container-highest/40'
-                : 'bg-surface-container-lowest/80 border-surface-container-highest/60'
-            }`}
-          >
-            <span
-              className={`text-[15px] sm:text-lg md:text-score-display font-extrabold tabular-nums ${
-                isUpcoming ? 'text-outline' : 'text-on-surface'
-              }`}
-            >
-              {isUpcoming ? '—' : homeTeam.score}
-            </span>
-            <span
-              className={`text-[11px] md:text-headline-md font-bold ${
-                isUpcoming ? 'text-outline/50' : 'text-outline'
-              }`}
-            >
-              :
-            </span>
-            <span
-              className={`text-[15px] sm:text-lg md:text-score-display font-extrabold tabular-nums ${
-                isUpcoming || homeWon ? 'text-outline' : 'text-on-surface'
-              }`}
-            >
-              {isUpcoming ? '—' : awayTeam.score}
-            </span>
-          </div>
-        </div>
-
-        {/* Away */}
-        <div className="col-span-5 flex items-center justify-start gap-1.5 md:gap-3 text-left min-w-0">
-          <div
-            className={`w-7 h-7 md:w-10 md:h-10 rounded-full bg-surface-container-highest border border-surface-container flex items-center justify-center shrink-0 shadow-inner overflow-hidden ${
-              homeWon ? 'opacity-75' : ''
-            }`}
-          >
-            {awayTeam.logo ? (
-              <img
-                src={awayTeam.logo}
-                alt={awayTeam.name}
-                className="w-5 h-5 md:w-7 md:h-7 object-contain"
-              />
-            ) : (
-              <span className="text-[10px] md:text-headline-md font-black text-secondary">
-                {awayTeam.name.slice(0, 3).toUpperCase()}
-              </span>
-            )}
-          </div>
-          <div className="min-w-0 flex items-center gap-1 md:gap-1.5">
-            <p
-              className={`text-[12px] sm:text-sm md:text-headline-md tracking-tight truncate ${
-                homeWon
-                  ? 'text-on-surface-variant font-semibold'
-                  : 'text-on-surface font-extrabold'
-              }`}
-            >
-              {awayTeam.name}
-            </p>
-            {awayWon && (
-              <span className="material-symbols-outlined text-primary text-[14px] shrink-0 hidden sm:inline">
-                check_circle
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* View details hint */}
-      <div className="pt-2.5 md:pt-3 border-t border-surface-container-highest/40 flex items-center justify-between text-on-surface-variant text-[10px] md:text-label-sm uppercase tracking-wider">
-        <span className="inline-flex items-center gap-1">
-          <span className="material-symbols-outlined text-[12px] md:text-[14px] text-primary">
-            info
-          </span>
-          View details
-        </span>
-        <span className="material-symbols-outlined text-[14px] md:text-[16px] text-primary group-hover:translate-x-0.5 transition-transform">
-          arrow_forward
-        </span>
-      </div>
-    </Link>
-  );
-}
+import FootballList from '@/components/football/FootballList';
 
 export default async function FootballPage() {
   const matches = await getFootballMatches();
-  const liveCount = matches.filter((m) => m.status === 'live').length;
+  const liveCount = matches.filter(
+    (m) => m.status === 'live' || m.status === 'halftime'
+  ).length;
 
   return (
     <>
@@ -249,7 +20,6 @@ export default async function FootballPage() {
         <main className="relative z-10 w-full bg-surface-container-lowest min-h-screen">
           <div className="flex flex-col w-full">
             <div className="max-w-7xl mx-auto w-full px-3 sm:px-4 md:px-gutter-desktop py-4 md:py-space-lg flex flex-col gap-3 md:gap-space-lg">
-              {/* Header */}
               <header className="flex flex-col gap-3 md:gap-space-md pb-1 md:pb-space-sm">
                 <div className="flex flex-col gap-1 md:gap-space-xs">
                   <div className="inline-flex items-center gap-1 self-start px-2 py-0.5 rounded-full bg-primary-container/20 text-primary">
@@ -286,7 +56,6 @@ export default async function FootballPage() {
                 </div>
               </header>
 
-              {/* Match list */}
               {matches.length === 0 ? (
                 <div className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-8 md:p-12 text-center">
                   <span className="material-symbols-outlined text-[48px] md:text-[64px] text-on-surface-variant mb-3">
@@ -300,11 +69,7 @@ export default async function FootballPage() {
                   </p>
                 </div>
               ) : (
-                <section className="flex flex-col gap-2 md:gap-space-md">
-                  {matches.map((match) => (
-                    <MatchRow key={match.id} match={match} />
-                  ))}
-                </section>
+                <FootballList matches={matches} />
               )}
             </div>
           </div>
