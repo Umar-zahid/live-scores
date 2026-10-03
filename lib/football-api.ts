@@ -145,15 +145,80 @@ async function getApiFootballMatches(): Promise<FootballMatch[]> {
 // ─── Bzzoiro ──────────────────────────────────────────────────────
 
 function bzzoiroStatus(e: BzzoiroEvent): MatchStatus {
-  if (e.status === 'finished') return 'finished';
-  if (e.status === 'notstarted') return 'upcoming';
-  if (e.status === 'inprogress') {
-    const period = (e.period ?? '').toLowerCase();
-    if (period === 'ht' || period.includes('half_time') || period === 'halftime') {
-      return 'halftime';
-    }
+  const raw = (e.status ?? '').toLowerCase().replace(/[\s-]/g, '_');
+  const period = (e.period ?? '').toLowerCase().replace(/[\s-]/g, '_');
+
+  // Halftime — check first since it's more specific
+  if (
+    period === 'ht' ||
+    period === 'half_time' ||
+    period === 'halftime' ||
+    period === 'break' ||
+    raw === 'halftime' ||
+    raw === 'half_time' ||
+    raw === 'ht'
+  ) {
+    return 'halftime';
+  }
+
+  // Finished
+  if (
+    raw === 'finished' ||
+    raw === 'ft' ||
+    raw === 'full_time' ||
+    raw === 'aet' ||
+    raw === 'after_extra_time' ||
+    raw === 'pen' ||
+    raw === 'after_penalties' ||
+    period === 'ft' ||
+    period === 'full_time'
+  ) {
+    return 'finished';
+  }
+
+  // Not started
+  if (
+    raw === 'notstarted' ||
+    raw === 'not_started' ||
+    raw === 'ns' ||
+    raw === 'scheduled' ||
+    raw === 'upcoming' ||
+    raw === 'pre_match' ||
+    raw === 'prematch' ||
+    raw === 'tbd'
+  ) {
+    return 'upcoming';
+  }
+
+  // Live detection: any in-progress keyword OR a period marker
+  if (
+    raw === 'inprogress' ||
+    raw === 'in_progress' ||
+    raw === 'live' ||
+    raw === 'inplay' ||
+    raw === 'in_play' ||
+    raw === 'playing' ||
+    raw === '1h' ||
+    raw === '2h' ||
+    raw === 'et' ||
+    raw === 'bt' ||
+    period === '1st_half' ||
+    period === '2nd_half' ||
+    period === 'first_half' ||
+    period === 'second_half' ||
+    period === '1h' ||
+    period === '2h' ||
+    period === 'extra_time'
+  ) {
     return 'live';
   }
+
+  // Fallback: if we have a positive minute value, treat as live.
+  // This catches any future status string we haven't seen yet.
+  if (typeof e.current_minute === 'number' && e.current_minute > 0) {
+    return 'live';
+  }
+
   return 'upcoming';
 }
 
