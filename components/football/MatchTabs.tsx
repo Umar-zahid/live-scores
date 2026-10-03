@@ -16,13 +16,14 @@ const eventTypeLabel: Record<string, string> = {
 function EventIcon({ type }: { type: string }) {
   if (type === 'goal')
     return (
-      <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>
+      <span className="material-symbols-outlined text-primary shrink-0" style={{ fontSize: 18 }}>
         sports_soccer
       </span>
     );
   if (type === 'yellow_card')
     return (
       <span
+        className="shrink-0"
         style={{
           display: 'inline-block',
           width: 12,
@@ -36,6 +37,7 @@ function EventIcon({ type }: { type: string }) {
   if (type === 'red_card')
     return (
       <span
+        className="shrink-0"
         style={{
           display: 'inline-block',
           width: 12,
@@ -48,15 +50,72 @@ function EventIcon({ type }: { type: string }) {
     );
   if (type === 'substitution')
     return (
-      <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>
+      <span className="material-symbols-outlined text-secondary shrink-0" style={{ fontSize: 18 }}>
         swap_horiz
       </span>
     );
   return null;
 }
 
+function EventBody({
+  event,
+  isHome,
+  teamName,
+}: {
+  event: FootballMatch['events'][number];
+  isHome: boolean;
+  teamName: string;
+}) {
+  const isSub = event.type === 'substitution';
+  const align = isHome ? 'text-right items-end' : 'text-left items-start';
+  const iconPos = isHome ? 'right' : 'left';
+
+  const icon = <EventIcon type={event.type} />;
+
+  return (
+    <div className={`flex flex-col ${align} min-w-0 w-full`}>
+      <div
+        className={`flex items-center gap-1.5 md:gap-2 min-w-0 ${
+          isHome ? 'justify-end' : 'justify-start'
+        }`}
+      >
+        {iconPos === 'left' && icon}
+        <span className="text-[12px] md:text-sm font-bold text-on-surface truncate">
+          {isSub ? (
+            <>
+              <span>{event.player}</span>
+              {event.assist && (
+                <>
+                  <span className="material-symbols-outlined text-secondary text-[12px] md:text-[14px] align-middle mx-0.5">
+                    arrow_forward
+                  </span>
+                  <span className="text-secondary">{event.assist}</span>
+                </>
+              )}
+            </>
+          ) : (
+            event.player
+          )}
+        </span>
+        {iconPos === 'right' && icon}
+      </div>
+      <div className="text-[10px] md:text-xs text-on-surface-variant truncate">
+        {isSub ? (
+          <>Sub · {teamName}</>
+        ) : (
+          <>
+            {eventTypeLabel[event.type] ?? event.type}
+            {event.assist && !isSub ? ` · assist ${event.assist}` : ''}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function OverviewTab({ match }: { match: FootballMatch }) {
   const sorted = [...match.events].sort((a, b) => a.minute - b.minute);
+
   if (!sorted.length) {
     return (
       <div className="rounded-xl bg-surface-container-low/40 border border-surface-container-highest/30 p-8 text-center">
@@ -67,80 +126,61 @@ function OverviewTab({ match }: { match: FootballMatch }) {
       </div>
     );
   }
+
   return (
-    <div className="relative flex flex-col gap-1">
-      <div className="absolute left-[20px] md:left-[26px] top-3 bottom-3 w-0.5 bg-surface-container" />
+    <div className="relative flex flex-col gap-0.5">
+      {/* Centre vertical divider */}
+      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-surface-container-highest/50 -translate-x-1/2 pointer-events-none" />
+
       {sorted.map((event, idx) => {
+        const isHome = event.team === 'home';
         const isGoal = event.type === 'goal';
-        const teamName =
-          event.team === 'home' ? match.homeTeam.name : match.awayTeam.name;
-        const logo =
-          event.team === 'home' ? match.homeTeam.logo : match.awayTeam.logo;
-        const isSub = event.type === 'substitution';
+        const teamName = isHome ? match.homeTeam.name : match.awayTeam.name;
 
         return (
           <div
             key={idx}
-            className="relative flex items-center gap-2 md:gap-3 p-2 rounded-lg hover:bg-surface-container/50"
+            className="grid grid-cols-[1fr_44px_1fr] md:grid-cols-[1fr_52px_1fr] items-center gap-1 md:gap-2 py-1.5"
           >
-            <div
-              className="shrink-0 flex items-center justify-center z-10 font-black tabular-nums"
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: '50%',
-                background: isGoal
-                  ? event.team === 'home'
-                    ? 'rgba(75,226,119,0.2)'
-                    : 'rgba(173,198,255,0.2)'
-                  : '#191f31',
-                color: isGoal
-                  ? event.team === 'home'
-                    ? '#4be277'
-                    : '#adc6ff'
-                  : '#bccbb9',
-                fontSize: 11,
-              }}
-            >
-              {event.minute}&apos;
+            {/* Left cell — home events render here, right-aligned */}
+            <div className="min-w-0">
+              {isHome && (
+                <EventBody event={event} isHome={true} teamName={teamName} />
+              )}
             </div>
-            <EventIcon type={event.type} />
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] md:text-sm font-bold text-on-surface truncate">
-                {isSub ? (
-                  <>
-                    <span>{event.player}</span>
-                    {event.assist && (
-                      <>
-                        <span className="material-symbols-outlined text-secondary text-[14px] align-middle mx-1">
-                          arrow_forward
-                        </span>
-                        <span className="text-secondary">{event.assist}</span>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  event.player
-                )}
-              </div>
-              <div className="text-[10px] md:text-xs text-on-surface-variant truncate">
-                {isSub ? (
-                  <>Sub · {teamName}</>
-                ) : (
-                  <>
-                    {eventTypeLabel[event.type] ?? event.type} · {teamName}
-                    {event.assist ? ` · assist ${event.assist}` : ''}
-                  </>
-                )}
+
+            {/* Centre minute badge */}
+            <div className="flex justify-center">
+              <div
+                className="flex items-center justify-center font-black tabular-nums z-10 shrink-0"
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: '50%',
+                  background: isGoal
+                    ? isHome
+                      ? 'rgba(75,226,119,0.2)'
+                      : 'rgba(173,198,255,0.2)'
+                    : '#191f31',
+                  color: isGoal
+                    ? isHome
+                      ? '#4be277'
+                      : '#adc6ff'
+                    : '#bccbb9',
+                  fontSize: 11,
+                  border: '2px solid #0f1522',
+                }}
+              >
+                {event.minute}&apos;
               </div>
             </div>
-            {logo && (
-              <img
-                src={logo}
-                alt=""
-                className="w-5 h-5 md:w-6 md:h-6 object-contain opacity-80 shrink-0"
-              />
-            )}
+
+            {/* Right cell — away events render here, left-aligned */}
+            <div className="min-w-0">
+              {!isHome && (
+                <EventBody event={event} isHome={false} teamName={teamName} />
+              )}
+            </div>
           </div>
         );
       })}
