@@ -11,6 +11,25 @@ const formatTime = (iso: string) =>
     timeZone: 'UTC',
   });
 
+// Top-league whitelist — the competitions users actually care about first.
+const TOP_LEAGUES = new Set([
+  'Premier League',
+  'La Liga',
+  'Serie A',
+  'Bundesliga',
+  'Ligue 1',
+  'Champions League',
+  'Europa League',
+  'Conference League',
+  'UEFA Nations League',
+  'UEFA Euro 2024',
+  'World Cup 2026',
+  'WC Qualifiers · UEFA',
+  'WC Qualifiers · CONMEBOL',
+  'Copa América',
+  'Africa Cup of Nations',
+]);
+
 const statusStyle = {
   live: {
     bar: 'bg-primary shadow-[0_0_8px_rgba(75,226,119,0.7)]',
@@ -232,16 +251,8 @@ function MatchRow({ match }: { match: FootballMatch }) {
 function dateHeaderLabel(iso: string): string {
   const d = new Date(iso + 'T00:00:00Z');
   const now = new Date();
-  const todayUTC = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate()
-  );
-  const targetUTC = Date.UTC(
-    d.getUTCFullYear(),
-    d.getUTCMonth(),
-    d.getUTCDate()
-  );
+  const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const targetUTC = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   const diffDays = Math.round((targetUTC - todayUTC) / 86400000);
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Tomorrow';
@@ -254,42 +265,55 @@ function dateHeaderLabel(iso: string): string {
   });
 }
 
+type StatusFilter = 'all' | 'live' | 'upcoming' | 'finished';
+
 export default function FootballList({ matches }: { matches: FootballMatch[] }) {
-  const [selectedLeague, setSelectedLeague] = useState<string>('__all__');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [topOnly, setTopOnly] = useState(false);
 
-  const leagues = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const m of matches) {
-      counts.set(m.league, (counts.get(m.league) ?? 0) + 1);
-    }
-    return Array.from(counts.entries()).sort((a, b) => {
-      if (b[1] !== a[1]) return b[1] - a[1];
-      return a[0].localeCompare(b[0]);
-    });
-  }, [matches]);
+  // 1. Apply top-league filter
+  const scoped = useMemo(
+    () => (topOnly ? matches.filter((m) => TOP_LEAGUES.has(m.league)) : matches),
+    [matches, topOnly]
+  );
 
-  const filtered = useMemo(() => {
-    return selectedLeague === '__all__'
-      ? matches
-      : matches.filter((m) => m.league === selectedLeague);
-  }, [matches, selectedLeague]);
-
+  // 2. Split into buckets
   const liveMatches = useMemo(
     () =>
-      filtered
+      scoped
         .filter((m) => m.status === 'live' || m.status === 'halftime')
         .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
-    [filtered]
+    [scoped]
   );
-
   const upcomingMatches = useMemo(
     () =>
-      filtered
+      scoped
         .filter((m) => m.status === 'upcoming')
         .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
-    [filtered]
+    [scoped]
+  );
+  const finishedMatches = useMemo(
+    () =>
+      scoped
+        .filter((m) => m.status === 'finished')
+        .sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime)),
+    [scoped]
   );
 
+  // 3. Apply status filter to decide which sections render
+  const showLive = statusFilter === 'all' || statusFilter === 'live';
+  const showUpcoming = statusFilter === 'all' || statusFilter === 'upcoming';
+  const showFinished = statusFilter === 'all' || statusFilter === 'finished';
+
+  // Counts per filter (for pill labels) — computed from the scoped set
+  const counts = {
+    all: scoped.length,
+    live: liveMatches.length,
+    upcoming: upcomingMatches.length,
+    finished: finishedMatches.length,
+  };
+
+  // Group upcoming by UTC date
   const upcomingByDate = useMemo(() => {
     const groups: { date: string; matches: FootballMatch[] }[] = [];
     const map = new Map<string, FootballMatch[]>();
@@ -301,63 +325,111 @@ export default function FootballList({ matches }: { matches: FootballMatch[] }) 
     const sortedDates = Array.from(map.entries()).sort((a, b) =>
       a[0].localeCompare(b[0])
     );
-    for (const [date, ms] of sortedDates) {
-      groups.push({ date, matches: ms });
-    }
+    for (const [date, ms] of sortedDates) groups.push({ date, matches: ms });
     return groups;
   }, [upcomingMatches]);
 
+  // Group finished by UTC date (most recent first)
+  const finishedByDate = useMemo(() => {
+    const groups: { date: string; matches: FootballMatch[] }[] = [];
+    const map = new Map<string, FootballMatch[]>();
+    for (const m of finishedMatches) {
+      const key = m.startTime.slice(0, 10);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(m);
+    }
+    const sortedDates = Array.from(map.entries()).sort((a, b) =>
+      b[0].localeCompare(a[0])
+    );
+    for (const [date, ms] of sortedDates) groups.push({ date, matches: ms });
+    return groups;
+  }, [finishedMatches]);
+
+  const visibleTotal =
+    (showLive ? liveMatches.length : 0) +
+    (showUpcoming ? upcomingMatches.length : 0) +
+    (showFinished ? finishedMatches.length : 0);
+
   return (
     <>
-      {/* League filter pills */}
-      <div
-        className="flex gap-2 overflow-x-auto pb-2 -mx-3 px-3 md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden"
-        style={{ scrollbarWidth: 'none' }}
-      >
-        <button
-          type="button"
-          onClick={() => setSelectedLeague('__all__')}
-          className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider border transition-colors ${
-            selectedLeague === '__all__'
-              ? 'bg-primary text-on-primary border-primary'
-              : 'bg-surface-container text-on-surface-variant border-surface-container-highest hover:bg-surface-container-high hover:text-on-surface'
-          }`}
+      {/* Filter bar */}
+      <div className="flex flex-col gap-2">
+        {/* Row 1: status */}
+        <div
+          className="flex gap-2 overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: 'none' }}
         >
-          All · {matches.length}
-        </button>
-        {leagues.map(([name, count]) => (
+          {(
+            [
+              ['all', 'All', counts.all],
+              ['live', 'Live', counts.live],
+              ['upcoming', 'Upcoming', counts.upcoming],
+              ['finished', 'Finished', counts.finished],
+            ] as const
+          ).map(([id, label, count]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setStatusFilter(id)}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider border transition-colors ${
+                statusFilter === id
+                  ? 'bg-primary text-on-primary border-primary'
+                  : 'bg-surface-container text-on-surface-variant border-surface-container-highest hover:bg-surface-container-high hover:text-on-surface'
+              }`}
+            >
+              {label}
+              <span className="ml-1 opacity-70">· {count}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Row 2: scope */}
+        <div
+          className="flex gap-2 overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0 pb-1 [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: 'none' }}
+        >
           <button
-            key={name}
             type="button"
-            onClick={() => setSelectedLeague(name)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider border transition-colors max-w-[220px] truncate ${
-              selectedLeague === name
-                ? 'bg-primary text-on-primary border-primary'
+            onClick={() => setTopOnly(false)}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider border transition-colors ${
+              !topOnly
+                ? 'bg-secondary text-on-secondary border-secondary'
                 : 'bg-surface-container text-on-surface-variant border-surface-container-highest hover:bg-surface-container-high hover:text-on-surface'
             }`}
-            title={name}
           >
-            {name} · {count}
+            All leagues
           </button>
-        ))}
+          <button
+            type="button"
+            onClick={() => setTopOnly(true)}
+            className={`shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider border transition-colors ${
+              topOnly
+                ? 'bg-secondary text-on-secondary border-secondary'
+                : 'bg-surface-container text-on-surface-variant border-surface-container-highest hover:bg-surface-container-high hover:text-on-surface'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[12px]">star</span>
+            Top only
+          </button>
+        </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {visibleTotal === 0 ? (
         <div className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-8 md:p-12 text-center">
           <span className="material-symbols-outlined text-[48px] md:text-[64px] text-on-surface-variant mb-3">
             sports_soccer
           </span>
           <h2 className="text-base md:text-headline-md text-on-surface font-bold mb-1.5">
-            No Matches in This League
+            No Matches Match Your Filters
           </h2>
           <p className="text-xs md:text-body-md text-on-surface-variant">
-            Pick another league above, or select &quot;All&quot;.
+            Try the &quot;All&quot; status filter or switch back to all leagues.
           </p>
         </div>
       ) : (
         <div className="flex flex-col gap-8 md:gap-10">
-          {/* Live Matches section */}
-          {liveMatches.length > 0 && (
+          {/* Live Matches */}
+          {showLive && liveMatches.length > 0 && (
             <section className="flex flex-col gap-3 md:gap-4">
               <h2 className="flex items-center gap-2 text-[13px] md:text-sm font-extrabold uppercase tracking-widest text-on-surface pb-1">
                 <span className="relative flex h-2.5 w-2.5">
@@ -370,15 +442,15 @@ export default function FootballList({ matches }: { matches: FootballMatch[] }) 
                 </span>
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                {liveMatches.map((match) => (
-                  <MatchRow key={match.id} match={match} />
+                {liveMatches.map((m) => (
+                  <MatchRow key={m.id} match={m} />
                 ))}
               </div>
             </section>
           )}
 
-          {/* Upcoming Matches section, grouped by date */}
-          {upcomingMatches.length > 0 && (
+          {/* Upcoming, grouped by date */}
+          {showUpcoming && upcomingMatches.length > 0 && (
             <section className="flex flex-col gap-5 md:gap-6">
               <h2 className="flex items-center gap-2 text-[13px] md:text-sm font-extrabold uppercase tracking-widest text-on-surface pb-1">
                 <span className="material-symbols-outlined text-[16px] md:text-[18px] text-secondary">
@@ -402,8 +474,8 @@ export default function FootballList({ matches }: { matches: FootballMatch[] }) 
                     </span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                    {dayMatches.map((match) => (
-                      <MatchRow key={match.id} match={match} />
+                    {dayMatches.map((m) => (
+                      <MatchRow key={m.id} match={m} />
                     ))}
                   </div>
                 </div>
@@ -411,19 +483,38 @@ export default function FootballList({ matches }: { matches: FootballMatch[] }) 
             </section>
           )}
 
-          {/* Nothing live and nothing upcoming in this view */}
-          {liveMatches.length === 0 && upcomingMatches.length === 0 && (
-            <div className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-8 md:p-12 text-center">
-              <span className="material-symbols-outlined text-[48px] md:text-[64px] text-on-surface-variant mb-3">
-                event_busy
-              </span>
-              <h2 className="text-base md:text-headline-md text-on-surface font-bold mb-1.5">
-                No Live or Upcoming Matches
+          {/* Finished, grouped by date — most recent first */}
+          {showFinished && finishedMatches.length > 0 && (
+            <section className="flex flex-col gap-5 md:gap-6">
+              <h2 className="flex items-center gap-2 text-[13px] md:text-sm font-extrabold uppercase tracking-widest text-on-surface pb-1">
+                <span className="material-symbols-outlined text-[16px] md:text-[18px] text-outline">
+                  history
+                </span>
+                Finished Matches
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[10px] md:text-[11px] font-bold tracking-wider">
+                  {finishedMatches.length}
+                </span>
               </h2>
-              <p className="text-xs md:text-body-md text-on-surface-variant">
-                Try again shortly, or pick another league above.
-              </p>
-            </div>
+
+              {finishedByDate.map(({ date, matches: dayMatches }) => (
+                <div key={date} className="flex flex-col gap-3 md:gap-4">
+                  <div className="flex items-center gap-3 pt-1">
+                    <h3 className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-widest text-on-surface-variant">
+                      {dateHeaderLabel(date)}
+                    </h3>
+                    <div className="flex-1 h-px bg-surface-container-highest/60"></div>
+                    <span className="text-[10px] md:text-[11px] text-on-surface-variant font-bold">
+                      {dayMatches.length} match{dayMatches.length === 1 ? '' : 'es'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                    {dayMatches.map((m) => (
+                      <MatchRow key={m.id} match={m} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </section>
           )}
         </div>
       )}
