@@ -42,8 +42,8 @@ export const MAJOR_LEAGUES: LeagueInfo[] = [
   { id: 136, name: 'Serie B',              country: 'Italy',       tier: 2 },
 
   // ─── Other continents ───
-  { id: 9,  name: 'Brasileirão Série A',   country: 'Brazil',      tier: 1 },
-  { id: 34, name: 'Brasileirão Série B',   country: 'Brazil',      tier: 2 },
+  { id: 9, name: 'Brasileirão Serie A',   country: 'Brazil',      tier: 1 },
+  { id: 34, name: 'Brasileirão Serie B',   country: 'Brazil',      tier: 2 },
   { id: 17, name: 'Saudi Pro League',      country: 'Saudi Arabia',tier: 1 },
   { id: 18, name: 'MLS',                   country: 'USA',         tier: 1 },
   { id: 19, name: 'Liga MX',               country: 'Mexico',      tier: 1 },
@@ -75,8 +75,8 @@ export const MAJOR_LEAGUES: LeagueInfo[] = [
   { id: 27, name: 'World Cup 2026',                 country: 'International',  tier: 1 },
   { id: 66, name: 'UEFA Euro 2024',                 country: 'Europe',         tier: 1 },
   { id: 67, name: 'Copa América',                   country: 'South America',  tier: 1 },
-  { id: 68, name: 'AFC Asian Cup',                  country: 'Asia',           tier: 1 },
-  { id: 30, name: 'Africa Cup of Nations',          country: 'Africa',         tier: 1 },
+  { id: 68, name: 'AFC Asian Cup 2023',                  country: 'Asia',           tier: 1 },
+  { id: 30, name: 'Africa Cup of Nations 2023',          country: 'Africa',         tier: 1 },
   { id: 64, name: 'UEFA Nations League',            country: 'Europe',         tier: 1 },
   { id: 65, name: 'CONCACAF Nations League',        country: 'North America',  tier: 1 },
   { id: 69, name: 'CONCACAF Gold Cup',              country: 'North America',  tier: 1 },
