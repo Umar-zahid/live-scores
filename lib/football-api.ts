@@ -334,16 +334,19 @@ function normalizeBzzoiroEvent(e: BzzoiroEvent): FootballMatch {
   };
 }
 
-async function getMajorLeagueMatches(): Promise<FootballMatch[]> {
+async function getMajorLeagueMatches(
+  from?: string,
+  to?: string
+): Promise<FootballMatch[]> {
   const now = new Date();
-  // Cover: recently finished (up to 7 days ago) → live → upcoming (next 3 days)
-  const from = new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const to = new Date(now.getTime() + 3 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  // Default window: recently finished (up to 7 days ago) → live → upcoming (next 3 days)
+  const windowFrom = from ?? new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const windowTo = to ?? new Date(now.getTime() + 3 * 24 * 3600 * 1000).toISOString().slice(0, 10);
 
   // One paginated fetch for the whole window, then filter client-side by
   // league. The response carries league_id on every event, so 16 pages
   // beats 64 parallel per-league requests — and won't truncate at 50.
-  const all = await getBzzoiroEventsInRange(from, to);
+  const all = await getBzzoiroEventsInRange(windowFrom, windowTo);
 
   const filtered = all.filter((e) => {
     if (!e) return false;
@@ -374,26 +377,36 @@ async function getMajorLeagueMatches(): Promise<FootballMatch[]> {
 
 // ─── Public API ───────────────────────────────────────────────────
 
-export async function getFootballMatches(): Promise<FootballMatch[]> {
-  // Fetch both sources in parallel: scheduled major-league fixtures
-  // AND the global live feed. Merge them so live matches always surface.
-  const [majorRes, liveRes] = await Promise.allSettled([
-    getMajorLeagueMatches(),
-    getBzzoiroLiveEvents().then((events) =>
-      events
-        .filter((e) => {
-          if (!e || !e.event_date || !e.home_team || !e.away_team) return false;
-          const st = (e.status ?? '').toLowerCase().replace(/[\s-]/g, '_');
-          if (
-            st === 'postponed' || st === 'pst' ||
-            st === 'cancelled' || st === 'canceled' || st === 'canc' ||
-            st === 'abandoned' || st === 'abd'
-          ) return false;
-          return true;
-        })
-        .map(normalizeBzzoiroEvent)
-    ),
-  ]);
+export async function getFootballMatches(date?: string): Promise<FootballMatch[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  const isToday = !date || date === today;
+  const validDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+
+  // When a specific non-today date is requested, scope the scheduled
+  // fetch to that single day and skip the global live feed entirely
+  // (live matches today shouldn't appear when browsing past/future).
+  const majorPromise = validDate && !isToday
+    ? getMajorLeagueMatches(validDate, validDate)
+    : getMajorLeagueMatches();
+
+  const livePromise: Promise<FootballMatch[]> = isToday
+    ? getBzzoiroLiveEvents().then((events) =>
+        events
+          .filter((e) => {
+            if (!e || !e.event_date || !e.home_team || !e.away_team) return false;
+            const st = (e.status ?? '').toLowerCase().replace(/[\s-]/g, '_');
+            if (
+              st === 'postponed' || st === 'pst' ||
+              st === 'cancelled' || st === 'canceled' || st === 'canc' ||
+              st === 'abandoned' || st === 'abd'
+            ) return false;
+            return true;
+          })
+          .map(normalizeBzzoiroEvent)
+      )
+    : Promise.resolve([]);
+
+  const [majorRes, liveRes] = await Promise.allSettled([majorPromise, livePromise]);
 
   const majorArr = majorRes.status === 'fulfilled' ? majorRes.value : [];
   const liveArr = liveRes.status === 'fulfilled' ? liveRes.value : [];

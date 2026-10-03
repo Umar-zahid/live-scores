@@ -1,17 +1,29 @@
 import Link from 'next/link';
 import { getFootballMatches } from '@/lib/football-api';
 import FootballList from '@/components/football/FootballList';
+import DatePicker from '@/components/football/DatePicker';
 import AutoRefresh from '@/components/shared/AutoRefresh';
 
-export default async function FootballPage() {
-  const matches = await getFootballMatches();
+export default async function FootballPage({
+  searchParams,
+}: {
+  searchParams: { date?: string };
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const validDate =
+    searchParams.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date)
+      ? searchParams.date
+      : today;
+  const isToday = validDate === today;
+
+  const matches = await getFootballMatches(isToday ? undefined : validDate);
   const liveCount = matches.filter(
     (m) => m.status === 'live' || m.status === 'halftime'
   ).length;
 
   return (
     <>
-      <AutoRefresh intervalMs={30000} />
+      {isToday && <AutoRefresh intervalMs={30000} />}
       <div className="relative w-full overflow-hidden">
         <div className="absolute inset-0 pointer-events-none opacity-30">
           <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[720px] h-[340px] bg-primary-container/25 blur-[130px] rounded-full"></div>
@@ -58,16 +70,20 @@ export default async function FootballPage() {
                 </div>
               </header>
 
+              <DatePicker selectedDate={validDate} />
+
               {matches.length === 0 ? (
                 <div className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-8 md:p-12 text-center">
                   <span className="material-symbols-outlined text-[48px] md:text-[64px] text-on-surface-variant mb-3">
                     sports_soccer
                   </span>
                   <h2 className="text-base md:text-headline-md text-on-surface font-bold mb-1.5">
-                    No Live Matches Right Now
+                    {isToday ? 'No Live Matches Right Now' : 'No Matches On This Day'}
                   </h2>
                   <p className="text-xs md:text-body-md text-on-surface-variant">
-                    Check back soon — live matches will appear here automatically.
+                    {isToday
+                      ? 'Check back soon — live matches will appear here automatically.'
+                      : 'Try a different date or jump back to Today.'}
                   </p>
                 </div>
               ) : (
