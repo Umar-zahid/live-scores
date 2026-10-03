@@ -1,4 +1,5 @@
 import type { TeamLineup, LineupPlayer } from '@/types';
+import type { PlayerMatchEvent } from '@/lib/player-ratings';
 
 function layoutStartXI(players: LineupPlayer[]): LineupPlayer[][] {
   const withGrid = players.filter((p) => p.grid);
@@ -36,14 +37,83 @@ function colorForRating(rating: number): { bg: string; fg: string } {
   return { bg: '#ffb4ab', fg: '#3d0a08' };
 }
 
+function EventIconRow({ events }: { events?: PlayerMatchEvent[] }) {
+  if (!events || events.length === 0) return null;
+
+  const goals = events.filter((e) => e.type === 'goal').length;
+  const yellow = events.filter((e) => e.type === 'yellow_card').length;
+  const red = events.filter((e) => e.type === 'red_card').length;
+  const subOff = events.some((e) => e.type === 'sub_off');
+
+  if (goals === 0 && yellow === 0 && red === 0 && !subOff) return null;
+
+  return (
+    <div className="flex items-center gap-0.5 justify-center flex-wrap min-h-[12px]">
+      {goals > 0 && (
+        <span className="inline-flex items-center">
+          <span
+            className="material-symbols-outlined"
+            style={{ fontSize: 11, color: '#4be277' }}
+            title="Goal"
+          >
+            sports_soccer
+          </span>
+          {goals > 1 && (
+            <span className="text-[8px] font-black ml-0.5" style={{ color: '#4be277' }}>
+              ×{goals}
+            </span>
+          )}
+        </span>
+      )}
+      {yellow > 0 && (
+        <span
+          className="inline-block"
+          style={{
+            width: 5,
+            height: 8,
+            background: '#facc15',
+            borderRadius: 1,
+            boxShadow: '0 0 3px rgba(250,204,21,0.5)',
+          }}
+          title="Yellow card"
+        />
+      )}
+      {red > 0 && (
+        <span
+          className="inline-block"
+          style={{
+            width: 5,
+            height: 8,
+            background: '#ffb4ab',
+            borderRadius: 1,
+            boxShadow: '0 0 3px rgba(255,180,171,0.5)',
+          }}
+          title="Red card"
+        />
+      )}
+      {subOff && (
+        <span
+          className="material-symbols-outlined"
+          style={{ fontSize: 11, color: '#ffb4ab' }}
+          title="Substituted off"
+        >
+          south
+        </span>
+      )}
+    </div>
+  );
+}
+
 function PlayerDot({
   p,
   rating,
   side,
+  events,
 }: {
   p: LineupPlayer;
   rating?: number;
   side: 'home' | 'away';
+  events?: PlayerMatchEvent[];
 }) {
   const accent = side === 'home' ? '#4be277' : '#adc6ff';
   const ratingColors = rating != null ? colorForRating(rating) : null;
@@ -66,7 +136,10 @@ function PlayerDot({
         {p.number ?? '–'}
       </div>
 
-      {/* Rating badge */}
+      {/* Event icons — goals, cards, sub-off */}
+      <EventIconRow events={events} />
+
+      {/* Rating badge (only for players who actually played) */}
       {rating != null && ratingColors && (
         <div
           className="font-black tabular-nums"
@@ -97,10 +170,12 @@ function Pitch({
   lineup,
   side,
   ratings,
+  playerEvents,
 }: {
   lineup: TeamLineup;
   side: 'home' | 'away';
   ratings?: Map<number, number>;
+  playerEvents?: Map<number, PlayerMatchEvent[]>;
 }) {
   const rows = layoutStartXI(lineup.startXI);
   const accent = side === 'home' ? '#4be277' : '#adc6ff';
@@ -131,6 +206,7 @@ function Pitch({
                     p={p}
                     rating={ratings?.get(p.id)}
                     side="home"
+                    events={playerEvents?.get(p.id)}
                   />
                 ))}
               </div>
@@ -143,6 +219,7 @@ function Pitch({
                     p={p}
                     rating={ratings?.get(p.id)}
                     side="away"
+                    events={playerEvents?.get(p.id)}
                   />
                 ))}
               </div>
@@ -163,9 +240,11 @@ function Pitch({
 function BenchList({
   players,
   ratings,
+  playerEvents,
 }: {
   players: LineupPlayer[];
   ratings?: Map<number, number>;
+  playerEvents?: Map<number, PlayerMatchEvent[]>;
 }) {
   if (!players.length) return null;
   return (
@@ -175,15 +254,68 @@ function BenchList({
       </div>
       <div className="flex flex-wrap gap-2">
         {players.map((p) => {
-          const rating = ratings?.get(p.id);
+          const evs = playerEvents?.get(p.id) ?? [];
+          const subOn = evs.some((e) => e.type === 'sub_on');
+          const goals = evs.filter((e) => e.type === 'goal').length;
+          const yellow = evs.filter((e) => e.type === 'yellow_card').length;
+          const red = evs.filter((e) => e.type === 'red_card').length;
+          // Rating only shown for subs who actually came on
+          const rating = subOn ? ratings?.get(p.id) : undefined;
           const colors = rating != null ? colorForRating(rating) : null;
+
           return (
             <span
               key={p.id}
               className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-surface-container-high/60 text-[11px] text-on-surface"
             >
               <span className="text-outline text-[10px]">{p.number ?? '–'}</span>
+              {subOn && (
+                <span
+                  className="material-symbols-outlined"
+                  style={{ fontSize: 11, color: '#4be277' }}
+                  title="Came on"
+                >
+                  north
+                </span>
+              )}
               {p.name}
+              {goals > 0 && (
+                <span className="inline-flex items-center">
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: 11, color: '#4be277' }}
+                  >
+                    sports_soccer
+                  </span>
+                  {goals > 1 && (
+                    <span className="text-[9px] font-black ml-0.5" style={{ color: '#4be277' }}>
+                      ×{goals}
+                    </span>
+                  )}
+                </span>
+              )}
+              {yellow > 0 && (
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 5,
+                    height: 8,
+                    background: '#facc15',
+                    borderRadius: 1,
+                  }}
+                />
+              )}
+              {red > 0 && (
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 5,
+                    height: 8,
+                    background: '#ffb4ab',
+                    borderRadius: 1,
+                  }}
+                />
+              )}
               {rating != null && colors && (
                 <span
                   className="font-black tabular-nums ml-1"
@@ -233,9 +365,11 @@ function CoachCard({ coach }: { coach: { name: string; photo: string } }) {
 export default function Lineups({
   lineups,
   ratings,
+  playerEvents,
 }: {
   lineups: TeamLineup[];
   ratings?: Map<number, number>;
+  playerEvents?: Map<number, PlayerMatchEvent[]>;
 }) {
   if (!lineups.length) return null;
   const [home, away] = lineups;
@@ -243,8 +377,8 @@ export default function Lineups({
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {home && <Pitch lineup={home} side="home" ratings={ratings} />}
-        {away && <Pitch lineup={away} side="away" ratings={ratings} />}
+        {home && <Pitch lineup={home} side="home" ratings={ratings} playerEvents={playerEvents} />}
+        {away && <Pitch lineup={away} side="away" ratings={ratings} playerEvents={playerEvents} />}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -253,8 +387,8 @@ export default function Lineups({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {home && <BenchList players={home.substitutes} ratings={ratings} />}
-        {away && <BenchList players={away.substitutes} ratings={ratings} />}
+        {home && <BenchList players={home.substitutes} ratings={ratings} playerEvents={playerEvents} />}
+        {away && <BenchList players={away.substitutes} ratings={ratings} playerEvents={playerEvents} />}
       </div>
     </div>
   );

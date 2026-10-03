@@ -221,8 +221,11 @@ export default function PlayerRatings({
 }) {
   // Prefer rich API-Football data when available
   if (players.length > 0) {
-    const homePlayers = players.filter((p) => p.team === 'home');
-    const awayPlayers = players.filter((p) => p.team === 'away');
+    // Only participants: starters (substitute === false) or subs who
+    // actually got on the pitch (minutes > 0).
+    const participants = players.filter((p) => !p.substitute || p.minutes > 0);
+    const homePlayers = participants.filter((p) => p.team === 'home');
+    const awayPlayers = participants.filter((p) => p.team === 'away');
     const hName = homePlayers[0]?.teamName ?? 'Home';
     const aName = awayPlayers[0]?.teamName ?? 'Away';
     const hLogo = homePlayers[0]?.teamLogo ?? '';
@@ -237,8 +240,8 @@ export default function PlayerRatings({
 
   // Fall back to incident-derived ratings
   if (incidentRatings && incidentRatings.length > 0) {
-    const home = incidentRatings.filter((r) => r.team === 'home');
-    const away = incidentRatings.filter((r) => r.team === 'away');
+    const home = incidentRatings.filter((r) => r.team === 'home' && r.appeared);
+    const away = incidentRatings.filter((r) => r.team === 'away' && r.appeared);
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-2">

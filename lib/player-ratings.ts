@@ -2,9 +2,13 @@
 // Incident-derived player ratings for matches where we don't have full
 // per-player stat sheets (i.e. all Bzzoiro-sourced matches).
 //
-// This is a v1 formula: base 6.0 + per-event contributions + team-result
-// modifier. Works with whatever we have — goals, assists, cards — and
-// degrades gracefully (a player with no incidents stays at base).
+// v1 formula: base 6.0 + per-event contributions + team-result modifier.
+// Works with whatever we have — goals, assists, cards — and degrades
+// gracefully (a player with no incidents stays at base).
+//
+// Also exports getPlayerMatchEvents() used by the Lineups component to
+// place event icons on the formation and to know who actually stepped
+// on the pitch (starters + subs who came on).
 
 import type { TeamLineup } from '@/types';
 
@@ -29,13 +33,24 @@ export interface BasicRating {
   position: string;
   jerseyNumber: number | null;
   rating: number;
+  appeared: boolean;
   lines: { label: string; delta: number }[];
+}
+
+export type PlayerMatchEventType =
+  | 'goal'
+  | 'yellow_card'
+  | 'red_card'
+  | 'sub_on'
+  | 'sub_off';
+
+export interface PlayerMatchEvent {
+  type: PlayerMatchEventType;
+  minute: number;
 }
 
 const BASE = 6.0;
 
-// Match a scored/assisted/carded name to a lineup player by fuzzy name match.
-// Handles "M. Cunha" vs "Matheus Cunha" style differences.
 function findPlayerId(
   lineups: TeamLineup[],
   team: 'home' | 'away',
@@ -59,20 +74,16 @@ function findPlayerId(
 
   const pool = [...lu.startXI, ...lu.substitutes];
 
-  // Exact full-name match
   for (const p of pool) {
     if (clean(p.name) === target) return p.id;
   }
 
-  // Last-token match (e.g. "Cunha" matches "Matheus Cunha")
   for (const p of pool) {
     const tokens = clean(p.name).split(/\s+/).filter(Boolean);
     const last = tokens[tokens.length - 1] ?? '';
     if (last && last === targetLast) return p.id;
   }
 
-  // Fallback: any player whose full name contains target as substring
-  // Only run for names of at least 3 chars to avoid false positives on initials.
   if (target.length >= 3) {
     for (const p of pool) {
       if (clean(p.name).includes(target)) return p.id;
@@ -86,9 +97,7 @@ export function computeIncidentRatings(input: RatingInput): BasicRating[] {
   const { lineups, events, homeScore, awayScore } = input;
   if (lineups.length < 2) return [];
 
-  // Collect per-player contributions
   const buckets = new Map<number, { lines: { label: string; delta: number }[] }>();
-
   const ensure = (playerId: number) => {
     if (!buckets.has(playerId)) buckets.set(playerId, { lines: [] });
     return buckets.get(playerId)!;
@@ -97,8 +106,6 @@ export function computeIncidentRatings(input: RatingInput): BasicRating[] {
   for (const ev of events) {
     const t = ev.team;
     if (ev.type === 'goal') {
-      // Own goals can arrive as 'Own Goal', 'own_goal', 'OG', etc.
-      // Normalize by stripping non-letters and checking canonical forms.
       const d = (ev.detail ?? '').toLowerCase().replace(/[^a-z]/g, '');
       if (d.includes('owngoal') || d === 'og') continue;
       const pid = findPlayerId(lineups, t, ev.player);
@@ -114,16 +121,11 @@ export function computeIncidentRatings(input: RatingInput): BasicRating[] {
       const pid = findPlayerId(lineups, t, ev.player);
       if (pid != null) ensure(pid).lines.push({ label: 'Red card', delta: -1.5 });
     }
-    // Substitutions don't affect our simple rating
   }
 
-  // Team-result modifier: winning team +0.3, losing team -0.2, draw 0
   const homeDelta = homeScore > awayScore ? 0.3 : homeScore < awayScore ? -0.2 : 0;
   const awayDelta = awayScore > homeScore ? 0.3 : awayScore < homeScore ? -0.2 : 0;
 
-  // Who actually set foot on the pitch: starters plus anyone who came on
-  // as a substitute. Substitution events carry the player coming ON in
-  // `assist` (the player going off is in `player` — see bzzoiroIncidentsToEvents).
   const appeared = new Set<number>();
   for (const lu of lineups) {
     for (const p of lu.startXI) appeared.add(p.id);
@@ -145,7 +147,8 @@ export function computeIncidentRatings(input: RatingInput): BasicRating[] {
     for (const p of all) {
       const bucket = buckets.get(p.id);
       const lines: { label: string; delta: number }[] = bucket ? [...bucket.lines] : [];
-      if (teamDelta !== 0 && appeared.has(p.id)) {
+      const played = appeared.has(p.id);
+      if (teamDelta !== 0 && played) {
         lines.push({
           label: teamDelta > 0 ? 'Team won' : 'Team lost',
           delta: teamDelta,
@@ -160,10 +163,53 @@ export function computeIncidentRatings(input: RatingInput): BasicRating[] {
         position: p.position,
         jerseyNumber: p.number,
         rating,
+        appeared: played,
         lines,
       });
     }
   }
 
   return out;
+}
+
+// Builds per-player event maps used by the Lineups pitch and bench.
+// Goal events credit the scorer (own goals are skipped); substitution
+// events credit BOTH the player coming off (sub_off) and the player
+// coming on (sub_on). `assist` on a substitution event carries the
+// incoming player — see bzzoiroIncidentsToEvents.
+export function getPlayerMatchEvents(
+  lineups: TeamLineup[],
+  events: RatingInput['events']
+): Map<number, PlayerMatchEvent[]> {
+  const map = new Map<number, PlayerMatchEvent[]>();
+  if (lineups.length < 2) return map;
+
+  const add = (pid: number, ev: PlayerMatchEvent) => {
+    if (!map.has(pid)) map.set(pid, []);
+    map.get(pid)!.push(ev);
+  };
+
+  for (const ev of events) {
+    if (ev.type === 'goal') {
+      const d = (ev.detail ?? '').toLowerCase().replace(/[^a-z]/g, '');
+      if (d.includes('owngoal') || d === 'og') continue;
+      const pid = findPlayerId(lineups, ev.team, ev.player);
+      if (pid != null) add(pid, { type: 'goal', minute: ev.minute });
+    } else if (ev.type === 'yellow_card') {
+      const pid = findPlayerId(lineups, ev.team, ev.player);
+      if (pid != null) add(pid, { type: 'yellow_card', minute: ev.minute });
+    } else if (ev.type === 'red_card') {
+      const pid = findPlayerId(lineups, ev.team, ev.player);
+      if (pid != null) add(pid, { type: 'red_card', minute: ev.minute });
+    } else if (ev.type === 'substitution') {
+      const offId = findPlayerId(lineups, ev.team, ev.player);
+      if (offId != null) add(offId, { type: 'sub_off', minute: ev.minute });
+      if (ev.assist) {
+        const onId = findPlayerId(lineups, ev.team, ev.assist);
+        if (onId != null) add(onId, { type: 'sub_on', minute: ev.minute });
+      }
+    }
+  }
+
+  return map;
 }

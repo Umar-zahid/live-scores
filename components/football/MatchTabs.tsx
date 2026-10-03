@@ -7,7 +7,7 @@ import Lineups from './Lineups';
 import PlayerRatings from './PlayerRatings';
 import PredictionsTab from './PredictionsTab';
 import StatisticsTab from './StatisticsTab';
-import { computeIncidentRatings, type BasicRating } from '@/lib/player-ratings';
+import { computeIncidentRatings, getPlayerMatchEvents, type BasicRating } from '@/lib/player-ratings';
 import type { MatchVisualData } from '@/lib/football-api';
 
 const eventTypeLabel: Record<string, string> = {
@@ -220,9 +220,16 @@ export default function MatchTabs({
     awayScore: match.awayTeam.score,
   });
 
+  // Only players who actually stepped on the pitch get a rating badge
+  // — starters plus subs who came on. Unused bench = no rating.
   const ratingMap = new Map<number, number>(
-    incidentRatings.map((r) => [r.playerId, r.rating])
+    incidentRatings
+      .filter((r) => r.appeared)
+      .map((r) => [r.playerId, r.rating])
   );
+
+  // Per-player event map (goals, cards, sub-on/sub-off) for the pitch.
+  const playerEvents = getPlayerMatchEvents(lineups, match.events ?? []);
 
   const tabs: { id: TabId; label: string; icon: string }[] = [
     { id: 'overview', label: 'Overview', icon: 'history' },
@@ -261,7 +268,7 @@ export default function MatchTabs({
         {tab === 'overview' && <OverviewTab match={match} />}
         {tab === 'lineups' &&
           (lineups.length > 0 ? (
-            <Lineups lineups={lineups} ratings={ratingMap} />
+            <Lineups lineups={lineups} ratings={ratingMap} playerEvents={playerEvents} />
           ) : (
             <div className="rounded-xl bg-surface-container-low/40 border border-surface-container-highest/30 p-8 text-center">
               <span className="material-symbols-outlined text-[40px] text-on-surface-variant mb-2">
