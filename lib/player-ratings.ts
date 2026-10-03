@@ -116,21 +116,31 @@ export function computeIncidentRatings(input: RatingInput): BasicRating[] {
   const homeDelta = homeScore > awayScore ? 0.3 : homeScore < awayScore ? -0.2 : 0;
   const awayDelta = awayScore > homeScore ? 0.3 : awayScore < homeScore ? -0.2 : 0;
 
+  // Who actually set foot on the pitch: starters plus anyone who came on
+  // as a substitute. Substitution events carry the player coming ON in
+  // `assist` (the player going off is in `player` — see bzzoiroIncidentsToEvents).
+  const appeared = new Set<number>();
+  for (const lu of lineups) {
+    for (const p of lu.startXI) appeared.add(p.id);
+  }
+  for (const ev of events) {
+    if (ev.type === 'substitution' && ev.assist) {
+      const subOnId = findPlayerId(lineups, ev.team, ev.assist);
+      if (subOnId != null) appeared.add(subOnId);
+    }
+  }
+
   const out: BasicRating[] = [];
   for (let teamIdx = 0; teamIdx < 2; teamIdx++) {
     const lu = lineups[teamIdx];
     const team: 'home' | 'away' = teamIdx === 0 ? 'home' : 'away';
     const teamDelta = team === 'home' ? homeDelta : awayDelta;
 
-    // Starters get the team-result modifier; unused bench does not.
-    const starters = new Set(lu.startXI.map((p) => p.id));
     const all = [...lu.startXI, ...lu.substitutes];
     for (const p of all) {
       const bucket = buckets.get(p.id);
       const lines: { label: string; delta: number }[] = bucket ? [...bucket.lines] : [];
-      const isStarter = starters.has(p.id);
-      const played = isStarter || (bucket && bucket.lines.length > 0);
-      if (teamDelta !== 0 && played) {
+      if (teamDelta !== 0 && appeared.has(p.id)) {
         lines.push({
           label: teamDelta > 0 ? 'Team won' : 'Team lost',
           delta: teamDelta,
