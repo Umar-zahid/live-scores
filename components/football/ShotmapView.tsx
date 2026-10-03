@@ -36,7 +36,8 @@ function ShotDot({ shot, team }: { shot: UIShot; team: 'home' | 'away' }) {
   const cy = PY(shot.y);
   const r = radiusForXg(shot.xg);
   const { fill, stroke } = colorForShot(shot.type);
-  const title = `#${shot.playerId} · ${shot.minute}' · xG ${shot.xg.toFixed(2)} · ${shot.type}${
+  const who = shot.playerName || `#${shot.playerId}`;
+  const title = `${who} · ${shot.minute}' · xG ${shot.xg.toFixed(2)} · ${shot.type}${
     shot.body ? ` · ${shot.body}` : ''
   }`;
 

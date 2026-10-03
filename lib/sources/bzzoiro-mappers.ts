@@ -8,6 +8,8 @@ import type {
   BzzoiroEventLineups,
   BzzoiroLineupTeam,
   BzzoiroLineupPlayer,
+  BzzoiroEventIncidents,
+  BzzoiroShotmapEntry,
 } from './bzzoiro';
 
 // ---- Stats ----
@@ -172,8 +174,6 @@ export function bzzoiroLineupsToTeamLineups(
 
 // ---- Incidents → events ----
 
-import type { BzzoiroEventIncidents } from './bzzoiro';
-
 type MappedEvent = {
   minute: number;
   type: string;
@@ -238,8 +238,6 @@ export function bzzoiroIncidentsToEvents(
 
 // ---- Shotmap ----
 
-import type { BzzoiroShotmapEntry } from './bzzoiro';
-
 export type UIShotType = 'goal' | 'save' | 'miss' | 'block' | 'post' | 'other';
 
 export interface UIShot {
@@ -248,6 +246,7 @@ export interface UIShot {
   xg: number;
   minute: number;
   playerId: number;
+  playerName?: string;
   type: UIShotType;
   team: 'home' | 'away';
   body?: string;
@@ -271,7 +270,10 @@ function normalizeShotType(raw: string): UIShotType {
  * We mirror the away team's x so both teams attack the RIGHT side, which is
  * the standard shotmap convention. y is left alone.
  */
-export function bzzoiroShotmapToUI(entries: BzzoiroShotmapEntry[]): UIShot[] {
+export function bzzoiroShotmapToUI(
+  entries: BzzoiroShotmapEntry[],
+  playerNames?: Map<number, string>
+): UIShot[] {
   if (!Array.isArray(entries)) return [];
   return entries
     .filter((e) => e && e.pos)
@@ -279,12 +281,14 @@ export function bzzoiroShotmapToUI(entries: BzzoiroShotmapEntry[]): UIShot[] {
       const isHome = Boolean(e.home);
       const x = isHome ? e.pos.x : 100 - e.pos.x;
       const team: 'home' | 'away' = isHome ? 'home' : 'away';
+      const playerId = e.player_id ?? 0;
       const shot: UIShot = {
         x: Math.max(0, Math.min(100, x)),
         y: Math.max(0, Math.min(100, e.pos.y)),
         xg: Number.isFinite(e.xg) ? e.xg : 0,
         minute: (e.min ?? 0) + (e.added ?? 0),
-        playerId: e.player_id ?? 0,
+        playerId,
+        playerName: playerNames?.get(playerId),
         type: normalizeShotType(e.type),
         team,
         body: e.body,

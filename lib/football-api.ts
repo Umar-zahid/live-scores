@@ -600,7 +600,19 @@ export async function getShotmapData(
     const raw = await getBzzoiroEventStats(numericId);
     if (!raw) return null;
 
-    const shotmap = bzzoiroShotmapToUI(raw.shotmap ?? []);
+    // average_positions carries playerId -> name on each row, so
+    // build a lookup once and hand it to the shotmap mapper.
+    // Tooltips then show "M. Cunha" instead of "#4119".
+    const playerNames = new Map<number, string>();
+    const avg = (raw as any).average_positions;
+    for (const p of avg?.home ?? []) {
+      if (p?.player_id != null && p?.name) playerNames.set(p.player_id, p.name);
+    }
+    for (const p of avg?.away ?? []) {
+      if (p?.player_id != null && p?.name) playerNames.set(p.player_id, p.name);
+    }
+
+    const shotmap = bzzoiroShotmapToUI(raw.shotmap ?? [], playerNames);
 
     const momentum: MomentumPoint[] = Array.isArray(raw.momentum)
       ? raw.momentum
@@ -963,12 +975,6 @@ export interface TopScorerRow {
   assists: number;
 }
 
-function currentSeason(): number {
-  const now = new Date();
-  // European season runs Aug-May — Jan-Jul is still the prior year's season.
-  return now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
-}
-
 export async function getLeagueStandings(
   afLeagueId: number
 ): Promise<StandingRow[] | null> {
@@ -976,7 +982,6 @@ export async function getLeagueStandings(
 
   // API-Football's free tier may only cover certain seasons. Try several
   // years, newest first, and use whichever one returns data.
-  const current = currentSeason();
   // API-Football Free tier: seasons 2022-2024 only. Skip newer — they
   // return {plan: "..."} every time and waste 1 request per attempt.
   const seasons = [2024, 2023, 2022];
@@ -1051,7 +1056,6 @@ export async function getLeagueTopScorers(
 ): Promise<TopScorerRow[] | null> {
   if (!KEY) return null;
 
-  const current = currentSeason();
   // API-Football Free tier: seasons 2022-2024 only. Skip newer — they
   // return {plan: "..."} every time and waste 1 request per attempt.
   const seasons = [2024, 2023, 2022];
