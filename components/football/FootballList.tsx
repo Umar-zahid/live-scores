@@ -229,18 +229,35 @@ function MatchRow({ match }: { match: FootballMatch }) {
   );
 }
 
-// Sort helper: live > halftime > upcoming > finished, then by kickoff
-const statusRank: Record<string, number> = {
-  live: 0,
-  halftime: 1,
-  upcoming: 2,
-  finished: 3,
-};
+function dateHeaderLabel(iso: string): string {
+  // iso is a YYYY-MM-DD string (UTC date)
+  const d = new Date(iso + 'T00:00:00Z');
+  const now = new Date();
+  const todayUTC = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  );
+  const targetUTC = Date.UTC(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate()
+  );
+  const diffDays = Math.round((targetUTC - todayUTC) / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Tomorrow';
+  if (diffDays === -1) return 'Yesterday';
+  return d.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
+}
 
 export default function FootballList({ matches }: { matches: FootballMatch[] }) {
   const [selectedLeague, setSelectedLeague] = useState<string>('__all__');
 
-  // Build league list with counts, sorted by count desc then name
   const leagues = useMemo(() => {
     const counts = new Map<string, number>();
     for (const m of matches) {
@@ -252,20 +269,46 @@ export default function FootballList({ matches }: { matches: FootballMatch[] }) 
     });
   }, [matches]);
 
-  // Filter + sort
   const filtered = useMemo(() => {
-    const base =
-      selectedLeague === '__all__'
-        ? matches
-        : matches.filter((m) => m.league === selectedLeague);
-
-    return [...base].sort((a, b) => {
-      const ra = statusRank[a.status] ?? 9;
-      const rb = statusRank[b.status] ?? 9;
-      if (ra !== rb) return ra - rb;
-      return +new Date(b.startTime) - +new Date(a.startTime);
-    });
+    return selectedLeague === '__all__'
+      ? matches
+      : matches.filter((m) => m.league === selectedLeague);
   }, [matches, selectedLeague]);
+
+  // Split: Live (live + halftime) vs Upcoming. Finished matches are hidden.
+  const liveMatches = useMemo(
+    () =>
+      filtered
+        .filter((m) => m.status === 'live' || m.status === 'halftime')
+        .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
+    [filtered]
+  );
+
+  const upcomingMatches = useMemo(
+    () =>
+      filtered
+        .filter((m) => m.status === 'upcoming')
+        .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
+    [filtered]
+  );
+
+  // Group upcoming by calendar date (UTC)
+  const upcomingByDate = useMemo(() => {
+    const groups: { date: string; matches: FootballMatch[] }[] = [];
+    const map = new Map<string, FootballMatch[]>();
+    for (const m of upcomingMatches) {
+      const key = m.startTime.slice(0, 10); // YYYY-MM-DD
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(m);
+    }
+    const sortedDates = Array.from(map.entries()).sort((a, b) =>
+      a[0].localeCompare(b[0])
+    );
+    for (const [date, ms] of sortedDates) {
+      groups.push({ date, matches: ms });
+    }
+    return groups;
+  }, [upcomingMatches]);
 
   return (
     <>
@@ -302,7 +345,6 @@ export default function FootballList({ matches }: { matches: FootballMatch[] }) 
         ))}
       </div>
 
-      {/* Match list */}
       {filtered.length === 0 ? (
         <div className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-8 md:p-12 text-center">
           <span className="material-symbols-outlined text-[48px] md:text-[64px] text-on-surface-variant mb-3">
@@ -316,11 +358,64 @@ export default function FootballList({ matches }: { matches: FootballMatch[] }) 
           </p>
         </div>
       ) : (
-        <section className="flex flex-col gap-2 md:gap-space-md">
-          {filtered.map((match) => (
-            <MatchRow key={match.id} match={match} />
-          ))}
-        </section>
+        <div className="flex flex-col gap-6 md:gap-8">
+          {/* Live section */}
+          {liveMatches.length > 0 && (
+            <section className="flex flex-col gap-2 md:gap-space-md">
+              <h2 className="flex items-center gap-2 text-[11px] md:text-xs font-extrabold uppercase tracking-widest text-on-surface-variant pb-1">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-error"></span>
+                </span>
+                Live · {liveMatches.length}
+              </h2>
+              {liveMatches.map((match) => (
+                <MatchRow key={match.id} match={match} />
+              ))}
+            </section>
+          )}
+
+          {/* Upcoming section, grouped by date */}
+          {upcomingMatches.length > 0 && (
+            <section className="flex flex-col gap-4 md:gap-6">
+              <h2 className="flex items-center gap-2 text-[11px] md:text-xs font-extrabold uppercase tracking-widest text-on-surface-variant pb-1">
+                <span className="material-symbols-outlined text-[14px] md:text-[16px]">
+                  schedule
+                </span>
+                Upcoming · {upcomingMatches.length}
+              </h2>
+
+              {upcomingByDate.map(({ date, matches: dayMatches }) => (
+                <div key={date} className="flex flex-col gap-2 md:gap-space-md">
+                  <div className="flex items-center gap-3 pt-1">
+                    <h3 className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-widest text-primary">
+                      {dateHeaderLabel(date)}
+                    </h3>
+                    <div className="flex-1 h-px bg-surface-container-highest/60"></div>
+                  </div>
+                  {dayMatches.map((match) => (
+                    <MatchRow key={match.id} match={match} />
+                  ))}
+                </div>
+              ))}
+            </section>
+          )}
+
+          {/* Nothing live and nothing upcoming in this view */}
+          {liveMatches.length === 0 && upcomingMatches.length === 0 && (
+            <div className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-8 md:p-12 text-center">
+              <span className="material-symbols-outlined text-[48px] md:text-[64px] text-on-surface-variant mb-3">
+                event_busy
+              </span>
+              <h2 className="text-base md:text-headline-md text-on-surface font-bold mb-1.5">
+                No Live or Upcoming Matches
+              </h2>
+              <p className="text-xs md:text-body-md text-on-surface-variant">
+                Try again shortly, or pick another league above.
+              </p>
+            </div>
+          )}
+        </div>
       )}
     </>
   );

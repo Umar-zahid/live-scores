@@ -6,11 +6,13 @@ import {
   getBzzoiroEventsInRange,
   getBzzoiroLiveEvents,
   getBzzoiroEvent,
+  getBzzoiroEventIncidents,
   type BzzoiroEvent,
 } from './sources/bzzoiro';
 import {
   bzzoiroStatsToFixtureStats,
   bzzoiroLineupsToTeamLineups,
+  bzzoiroIncidentsToEvents,
 } from './sources/bzzoiro-mappers';
 import { MAJOR_LEAGUE_IDS } from './sources/leagues';
 
@@ -273,7 +275,16 @@ export async function getFootballMatchById(
     try {
       const e = await getBzzoiroEvent(numericId);
       if (!e) return null;
-      return normalizeBzzoiroEvent(e);
+      const base = normalizeBzzoiroEvent(e);
+      // Enrich with incidents (goals, cards, subs)
+      try {
+        const isLive = base.status === 'live' || base.status === 'halftime';
+        const inc = await getBzzoiroEventIncidents(numericId, isLive);
+        if (inc) base.events = bzzoiroIncidentsToEvents(inc);
+      } catch (err) {
+        console.error('Bzzoiro incidents enrichment failed:', err);
+      }
+      return base;
     } catch (err) {
       console.error('getBzzoiroEvent failed:', err);
       return null;

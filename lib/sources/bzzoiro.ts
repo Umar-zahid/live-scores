@@ -96,21 +96,52 @@ export interface BzzoiroEventLineups {
   updated_at: string;
 }
 
+export interface BzzoiroIncident {
+  type: string; // "period" | "injuryTime" | "goal" | "card" | "substitution"
+  minute?: number | null;
+  added_time?: number | null;
+
+  // "period" + "goal"
+  text?: string;
+  is_live?: boolean;
+  home_score?: number | null;
+  away_score?: number | null;
+
+  // "injuryTime"
+  length?: number;
+
+  // "goal"
+  player?: string;
+  player_id?: number;
+  assist?: string | null;
+  goal_type?: string;
+  sequence?: any[];
+
+  // "card"
+  card_type?: string; // "yellow" | "red"
+  reason?: string;
+
+  // "substitution"
+  player_in?: string;
+  player_out?: string;
+  player_in_id?: number;
+  player_out_id?: number;
+
+  // goal / card / sub all have this — home or away side
+  is_home?: boolean;
+
+  // alternate field names (safety net for other API responses)
+  player_name?: string;
+  assist_player_name?: string;
+  player_in_name?: string;
+  player_out_name?: string;
+  team_id?: number;
+  assist_player_id?: number;
+}
+
 export interface BzzoiroEventIncidents {
   event_id: number;
-  incidents: {
-    text: string;
-    type: string;
-    minute: number | null;
-    is_live: boolean;
-    home_score: number | null;
-    away_score: number | null;
-    team_id?: number;
-    player_id?: number;
-    player_name?: string;
-    assist_player_id?: number;
-    assist_player_name?: string;
-  }[];
+  incidents: BzzoiroIncident[];
 }
 
 export interface BzzoiroPlayer {

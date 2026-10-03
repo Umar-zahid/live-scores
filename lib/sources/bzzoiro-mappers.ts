@@ -36,8 +36,6 @@ function ratioStat(v: any): string | null {
   return `${v.value}/${v.total}${v.pct != null ? ` (${v.pct}%)` : ''}`;
 }
 
-// Ordered list of [display label, source key, formatter].
-// Only stats that come back non-null are included in the output.
 const STAT_ORDER: [string, string, (v: any) => string | number | null][] = [
   ['Ball Possession', 'ball_possession', (v) => (v != null ? `${v}%` : null)],
   ['Expected Goals (xG)', 'expected_goals', (v) => fmt2(v)],
@@ -121,17 +119,13 @@ export function bzzoiroStatsToFixtureStats(
 
 // ---- Lineups ----
 
-// Bzzoiro doesn't provide grid coordinates. We infer them from the player's
-// position letter (G/D/M/F) and their index within that position group.
-// Rows: GK=1, DEF=2, MID=3, FWD=4. Columns start at 1 left to right.
-function inferGrid(position: string, indexInGroup: number, groupSize: number): string {
+function inferGrid(position: string, indexInGroup: number): string {
   const row = position === 'G' ? 1 : position === 'D' ? 2 : position === 'M' ? 3 : 4;
   const col = indexInGroup + 1;
   return `${row}:${col}`;
 }
 
 function mapLineupPlayers(players: BzzoiroLineupPlayer[]): LineupPlayer[] {
-  // Group by position letter to compute index within group.
   const groups: Record<string, number> = {};
   return players.map((p) => {
     const pos = p.position ?? '';
@@ -142,15 +136,12 @@ function mapLineupPlayers(players: BzzoiroLineupPlayer[]): LineupPlayer[] {
       name: p.name,
       number: p.jersey_number ?? null,
       position: pos,
-      grid: inferGrid(pos, idx, 0),
+      grid: inferGrid(pos, idx),
     };
   });
 }
 
-function mapTeamSide(
-  side: BzzoiroLineupTeam,
-  logo: string
-): TeamLineup {
+function mapTeamSide(side: BzzoiroLineupTeam, logo: string): TeamLineup {
   return {
     teamId: side.team_id,
     teamName: side.team_name,
@@ -169,9 +160,73 @@ export function bzzoiroLineupsToTeamLineups(
 ): TeamLineup[] | null {
   if (!data?.lineups?.home || !data?.lineups?.away) return null;
   if (!data.lineups.home.players?.length || !data.lineups.away.players?.length) return null;
-
   return [
     mapTeamSide(data.lineups.home, homeLogo),
     mapTeamSide(data.lineups.away, awayLogo),
   ];
+}
+
+// ---- Incidents → events ----
+
+import type { BzzoiroEventIncidents } from './bzzoiro';
+
+type MappedEvent = {
+  minute: number;
+  type: string;
+  player: string;
+  assist?: string | null;
+  detail?: string;
+  team: 'home' | 'away';
+};
+
+export function bzzoiroIncidentsToEvents(
+  data: BzzoiroEventIncidents | null
+): MappedEvent[] {
+  if (!data?.incidents || !Array.isArray(data.incidents)) return [];
+
+  const out: MappedEvent[] = [];
+
+  for (const inc of data.incidents) {
+    if (!inc || typeof inc !== 'object') continue;
+    const team: 'home' | 'away' = inc.is_home ? 'home' : 'away';
+    const minute = inc.minute ?? 0;
+
+    if (inc.type === 'goal') {
+      // Skip own goals and penalty-shootout noise if we ever see them
+      out.push({
+        minute,
+        type: 'goal',
+        player: inc.player_name ?? inc.player ?? 'Unknown',
+        assist: inc.assist ?? null,
+        detail: inc.goal_type ?? 'regular',
+        team,
+      });
+    } else if (inc.type === 'card') {
+      const cardType = (inc.card_type ?? '').toLowerCase();
+      out.push({
+        minute,
+        type: cardType === 'red' ? 'red_card' : 'yellow_card',
+        player: inc.player_name ?? inc.player ?? 'Unknown',
+        assist: null,
+        detail: inc.reason ?? undefined,
+        team,
+      });
+    } else if (inc.type === 'substitution') {
+      // Main name = player coming off; assist = player coming on.
+      // MatchTabs renders substitutions with "on: X" for clarity.
+      out.push({
+        minute,
+        type: 'substitution',
+        player: inc.player_out ?? inc.player_out_name ?? 'Unknown',
+        assist: inc.player_in ?? inc.player_in_name ?? null,
+        detail: 'substitution',
+        team,
+      });
+    }
+    // Skip: "period" (FT/HT markers), "injuryTime"
+  }
+
+  // Sort by minute ascending, then stable by original order
+  out.sort((a, b) => a.minute - b.minute);
+  return out;
 }

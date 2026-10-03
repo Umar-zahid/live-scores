@@ -76,6 +76,8 @@ function OverviewTab({ match }: { match: FootballMatch }) {
           event.team === 'home' ? match.homeTeam.name : match.awayTeam.name;
         const logo =
           event.team === 'home' ? match.homeTeam.logo : match.awayTeam.logo;
+        const isSub = event.type === 'substitution';
+
         return (
           <div
             key={idx}
@@ -105,11 +107,31 @@ function OverviewTab({ match }: { match: FootballMatch }) {
             <EventIcon type={event.type} />
             <div className="flex-1 min-w-0">
               <div className="text-[13px] md:text-sm font-bold text-on-surface truncate">
-                {event.player}
+                {isSub ? (
+                  <>
+                    <span>{event.player}</span>
+                    {event.assist && (
+                      <>
+                        <span className="material-symbols-outlined text-secondary text-[14px] align-middle mx-1">
+                          arrow_forward
+                        </span>
+                        <span className="text-secondary">{event.assist}</span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  event.player
+                )}
               </div>
               <div className="text-[10px] md:text-xs text-on-surface-variant truncate">
-                {eventTypeLabel[event.type] ?? event.type} · {teamName}
-                {event.assist ? ` · assist ${event.assist}` : ''}
+                {isSub ? (
+                  <>Sub · {teamName}</>
+                ) : (
+                  <>
+                    {eventTypeLabel[event.type] ?? event.type} · {teamName}
+                    {event.assist ? ` · assist ${event.assist}` : ''}
+                  </>
+                )}
               </div>
             </div>
             {logo && (
