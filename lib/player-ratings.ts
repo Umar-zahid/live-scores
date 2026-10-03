@@ -100,7 +100,7 @@ export function computeIncidentRatings(input: RatingInput): BasicRating[] {
       // Own goals can arrive as 'Own Goal', 'own_goal', 'OG', etc.
       // Normalize by stripping non-letters and checking canonical forms.
       const d = (ev.detail ?? '').toLowerCase().replace(/[^a-z]/g, '');
-      if (d === 'owngoal' || d === 'og') continue;
+      if (d.includes('owngoal') || d === 'og') continue;
       const pid = findPlayerId(lineups, t, ev.player);
       if (pid != null) ensure(pid).lines.push({ label: 'Goal', delta: 1.0 });
       if (ev.assist) {

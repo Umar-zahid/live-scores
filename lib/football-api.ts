@@ -342,6 +342,12 @@ async function getMajorLeagueMatches(): Promise<FootballMatch[]> {
     if (!e) return false;
     if (!e.event_date) return false;
     if (!e.home_team || !e.away_team) return false;
+    const st = (e.status ?? '').toLowerCase().replace(/[\s-]/g, '_');
+    if (
+      st === 'postponed' || st === 'pst' ||
+      st === 'cancelled' || st === 'canceled' || st === 'canc' ||
+      st === 'abandoned' || st === 'abd'
+    ) return false;
     return true;
   });
 
@@ -370,7 +376,16 @@ export async function getFootballMatches(): Promise<FootballMatch[]> {
     getMajorLeagueMatches(),
     getBzzoiroLiveEvents().then((events) =>
       events
-        .filter((e) => e && e.event_date && e.home_team && e.away_team)
+        .filter((e) => {
+          if (!e || !e.event_date || !e.home_team || !e.away_team) return false;
+          const st = (e.status ?? '').toLowerCase().replace(/[\s-]/g, '_');
+          if (
+            st === 'postponed' || st === 'pst' ||
+            st === 'cancelled' || st === 'canceled' || st === 'canc' ||
+            st === 'abandoned' || st === 'abd'
+          ) return false;
+          return true;
+        })
         .map(normalizeBzzoiroEvent)
     ),
   ]);
