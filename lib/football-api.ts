@@ -971,7 +971,9 @@ export async function getLeagueStandings(
   // API-Football's free tier may only cover certain seasons. Try several
   // years, newest first, and use whichever one returns data.
   const current = currentSeason();
-  const seasons = [current, current - 1, current - 2, 2024, 2023];
+  // API-Football Free tier: seasons 2022-2024 only. Skip newer — they
+  // return {plan: "..."} every time and waste 1 request per attempt.
+  const seasons = [2024, 2023, 2022];
 
   for (const season of seasons) {
     try {
@@ -1044,7 +1046,9 @@ export async function getLeagueTopScorers(
   if (!KEY) return null;
 
   const current = currentSeason();
-  const seasons = [current, current - 1, current - 2, 2024, 2023];
+  // API-Football Free tier: seasons 2022-2024 only. Skip newer — they
+  // return {plan: "..."} every time and waste 1 request per attempt.
+  const seasons = [2024, 2023, 2022];
 
   for (const season of seasons) {
     try {
