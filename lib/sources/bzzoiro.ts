@@ -53,6 +53,46 @@ export interface BzzoiroEvent {
   last_updated: string;
 }
 
+export interface BzzoiroShotmapEntry {
+  pos: { x: number; y: number; z?: number };
+  gm: { x: number; y: number; z?: number };
+  xg: number;
+  gml?: string;
+  min: number;
+  added?: number | null;
+  sit?: string;
+  body?: string;
+  home: boolean;
+  type: string; // "goal" | "save" | "miss" | "block" | "post" | ...
+  xgot?: number | null;
+  player_id: number;
+  xg_estimated?: boolean;
+  block?: { x: number; y: number; z?: number };
+}
+
+export interface BzzoiroMomentumPoint {
+  m: number; // minute (may be fractional)
+  v: number; // -100..100, positive = home pressuring
+}
+
+export interface BzzoiroXgPoint {
+  m: number;
+  xg_home: number;
+  xg_away: number;
+  cum_home: number;
+  cum_away: number;
+  estimated: boolean;
+}
+
+export interface BzzoiroAveragePosition {
+  n: number;
+  x: number;
+  y: number;
+  pos: string;
+  name: string;
+  player_id: number;
+}
+
 export interface BzzoiroEventStats {
   event_id: number;
   xg_estimated: boolean;
@@ -62,10 +102,13 @@ export interface BzzoiroEventStats {
     first_half?: { home: Record<string, any>; away: Record<string, any> };
     second_half?: { home: Record<string, any>; away: Record<string, any> };
   };
-  shotmap: any[];
-  momentum: any[];
-  average_positions: Record<string, any>;
-  xg_per_minute: any[];
+  shotmap: BzzoiroShotmapEntry[];
+  momentum: BzzoiroMomentumPoint[];
+  average_positions: {
+    home?: BzzoiroAveragePosition[];
+    away?: BzzoiroAveragePosition[];
+  };
+  xg_per_minute: BzzoiroXgPoint[];
 }
 
 export interface BzzoiroLineupPlayer {

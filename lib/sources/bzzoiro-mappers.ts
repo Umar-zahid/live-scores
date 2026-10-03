@@ -230,3 +230,63 @@ export function bzzoiroIncidentsToEvents(
   out.sort((a, b) => a.minute - b.minute);
   return out;
 }
+
+
+// ---- Shotmap ----
+
+import type { BzzoiroShotmapEntry } from './bzzoiro';
+
+export type UIShotType = 'goal' | 'save' | 'miss' | 'block' | 'post' | 'other';
+
+export interface UIShot {
+  x: number; // 0-100, both teams normalized to attack the RIGHT side
+  y: number; // 0-100, top to bottom
+  xg: number;
+  minute: number;
+  playerId: number;
+  type: UIShotType;
+  team: 'home' | 'away';
+  body?: string;
+  situation?: string;
+}
+
+function normalizeShotType(raw: string): UIShotType {
+  const t = (raw ?? '').toLowerCase();
+  if (t === 'goal') return 'goal';
+  if (t === 'save' || t === 'saved') return 'save';
+  if (t === 'miss' || t === 'off_target') return 'miss';
+  if (t === 'block' || t === 'blocked') return 'block';
+  if (t === 'post' || t === 'woodwork' || t === 'hit_woodwork') return 'post';
+  return 'other';
+}
+
+/**
+ * Bzzoiro records shot coordinates in the shooting team's own frame:
+ *   - Home team attacks x=100
+ *   - Away team attacks x=0
+ * We mirror the away team's x so both teams attack the RIGHT side, which is
+ * the standard shotmap convention. y is left alone.
+ */
+export function bzzoiroShotmapToUI(entries: BzzoiroShotmapEntry[]): UIShot[] {
+  if (!Array.isArray(entries)) return [];
+  return entries
+    .filter((e) => e && e.pos)
+    .map((e) => {
+      const isHome = Boolean(e.home);
+      const x = isHome ? e.pos.x : 100 - e.pos.x;
+      const team: 'home' | 'away' = isHome ? 'home' : 'away';
+      const shot: UIShot = {
+        x: Math.max(0, Math.min(100, x)),
+        y: Math.max(0, Math.min(100, e.pos.y)),
+        xg: Number.isFinite(e.xg) ? e.xg : 0,
+        minute: (e.min ?? 0) + (e.added ?? 0),
+        playerId: e.player_id ?? 0,
+        type: normalizeShotType(e.type),
+        team,
+        body: e.body,
+        situation: e.sit,
+      };
+      return shot;
+    })
+    .sort((a, b) => a.minute - b.minute);
+}

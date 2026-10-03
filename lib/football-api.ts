@@ -15,6 +15,8 @@ import {
   bzzoiroStatsToFixtureStats,
   bzzoiroLineupsToTeamLineups,
   bzzoiroIncidentsToEvents,
+  bzzoiroShotmapToUI,
+  type UIShot,
 } from './sources/bzzoiro-mappers';
 import { MAJOR_LEAGUE_IDS } from './sources/leagues';
 import { calculateRating, type PlayerStats, type Position } from './ratings';
@@ -460,6 +462,61 @@ export async function getMatchPrediction(
     };
   } catch (err) {
     console.error('getMatchPrediction failed:', err);
+    return null;
+  }
+}
+
+// ─── Shotmap + momentum data (Bzzoiro-only) ───────────────────────
+
+export interface MomentumPoint {
+  minute: number;
+  value: number; // -100..100, positive = home
+}
+
+export interface XgPoint {
+  minute: number;
+  cumHome: number;
+  cumAway: number;
+}
+
+export interface MatchVisualData {
+  shotmap: UIShot[];
+  momentum: MomentumPoint[];
+  xgTimeline: XgPoint[];
+}
+
+export async function getShotmapData(
+  fixtureId: string
+): Promise<MatchVisualData | null> {
+  if (!fixtureId.startsWith('bz-')) return null;
+  const numericId = fixtureId.slice(3);
+  try {
+    const raw = await getBzzoiroEventStats(numericId);
+    if (!raw) return null;
+
+    const shotmap = bzzoiroShotmapToUI(raw.shotmap ?? []);
+
+    const momentum: MomentumPoint[] = Array.isArray(raw.momentum)
+      ? raw.momentum
+          .filter((p) => p && typeof p.m === 'number' && typeof p.v === 'number')
+          .map((p) => ({ minute: p.m, value: p.v }))
+      : [];
+
+    const xgTimeline: XgPoint[] = Array.isArray(raw.xg_per_minute)
+      ? raw.xg_per_minute
+          .filter((p) => p && typeof p.m === 'number')
+          .map((p) => ({
+            minute: p.m,
+            cumHome: Number.isFinite(p.cum_home) ? p.cum_home : 0,
+            cumAway: Number.isFinite(p.cum_away) ? p.cum_away : 0,
+          }))
+      : [];
+
+    if (!shotmap.length && !momentum.length && !xgTimeline.length) return null;
+
+    return { shotmap, momentum, xgTimeline };
+  } catch (err) {
+    console.error('getShotmapData failed:', err);
     return null;
   }
 }

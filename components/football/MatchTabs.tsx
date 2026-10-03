@@ -6,7 +6,9 @@ import type { FixtureStats, FixturePlayer, MatchPrediction } from '@/lib/footbal
 import Lineups from './Lineups';
 import PlayerRatings from './PlayerRatings';
 import PredictionsTab from './PredictionsTab';
+import StatisticsTab from './StatisticsTab';
 import { computeIncidentRatings, type BasicRating } from '@/lib/player-ratings';
+import type { MatchVisualData } from '@/lib/football-api';
 
 const eventTypeLabel: Record<string, string> = {
   goal: 'Goal',
@@ -190,91 +192,6 @@ function OverviewTab({ match }: { match: FootballMatch }) {
   );
 }
 
-function StatsTab({
-  stats,
-  homeName,
-  awayName,
-}: {
-  stats: FixtureStats[];
-  homeName: string;
-  awayName: string;
-}) {
-  if (stats.length < 2) {
-    return (
-      <div className="rounded-xl bg-surface-container-low/40 border border-surface-container-highest/30 p-8 text-center">
-        <span className="material-symbols-outlined text-[40px] text-on-surface-variant mb-2">
-          bar_chart
-        </span>
-        <p className="text-sm text-on-surface-variant">
-          Match statistics aren&apos;t available for this fixture.
-        </p>
-      </div>
-    );
-  }
-
-  const home = stats[0];
-  const away = stats[1];
-
-  const homeMap = new Map(home.stats.map((s) => [s.type, s.value]));
-  const awayMap = new Map(away.stats.map((s) => [s.type, s.value]));
-
-  const allTypes = Array.from(
-    new Set([...home.stats.map((s) => s.type), ...away.stats.map((s) => s.type)])
-  );
-
-  const numeric = (v: any): number => {
-    if (typeof v === 'number') return v;
-    if (typeof v === 'string') {
-      const m = v.match(/^(\d+(?:\.\d+)?)%?$/);
-      if (m) return parseFloat(m[1]);
-    }
-    return 0;
-  };
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between pb-2 border-b border-surface-container-highest/30">
-        <span className="text-xs font-bold uppercase tracking-wider text-primary truncate max-w-[40%]">
-          {homeName}
-        </span>
-        <span className="text-[10px] text-on-surface-variant uppercase">vs</span>
-        <span className="text-xs font-bold uppercase tracking-wider text-secondary text-right truncate max-w-[40%]">
-          {awayName}
-        </span>
-      </div>
-
-      {allTypes.map((type) => {
-        const hv = homeMap.get(type) ?? null;
-        const av = awayMap.get(type) ?? null;
-        const hn = numeric(hv);
-        const an = numeric(av);
-        const total = hn + an;
-        const hpct = total > 0 ? (hn / total) * 100 : 50;
-
-        return (
-          <div key={type} className="flex flex-col gap-1">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-on-surface tabular-nums">
-                {hv ?? '—'}
-              </span>
-              <span className="text-[10px] md:text-xs text-on-surface-variant uppercase tracking-wider">
-                {type}
-              </span>
-              <span className="font-bold text-on-surface tabular-nums">
-                {av ?? '—'}
-              </span>
-            </div>
-            <div className="flex h-1.5 rounded-full overflow-hidden bg-surface-container">
-              <div className="bg-primary" style={{ width: `${hpct}%` }} />
-              <div className="bg-secondary flex-1" />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 type TabId = 'overview' | 'lineups' | 'stats' | 'ratings' | 'predictions';
 
 export default function MatchTabs({
@@ -283,12 +200,14 @@ export default function MatchTabs({
   stats,
   players,
   prediction,
+  visuals,
 }: {
   match: FootballMatch;
   lineups: TeamLineup[];
   stats: FixtureStats[];
   players: FixturePlayer[];
   prediction: MatchPrediction | null;
+  visuals: MatchVisualData | null;
 }) {
   const [tab, setTab] = useState<TabId>('overview');
 
@@ -357,8 +276,9 @@ export default function MatchTabs({
             </div>
           ))}
         {tab === 'stats' && (
-          <StatsTab
+          <StatisticsTab
             stats={stats}
+            visuals={visuals}
             homeName={match.homeTeam.name}
             awayName={match.awayTeam.name}
           />

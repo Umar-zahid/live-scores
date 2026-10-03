@@ -5,6 +5,7 @@ import {
   getFixtureStatistics,
   getFixturePlayers,
   getMatchPrediction,
+  getShotmapData,
 } from '@/lib/football-api';
 import MatchTabs from '@/components/football/MatchTabs';
 import AutoRefresh from '@/components/shared/AutoRefresh';
@@ -70,7 +71,7 @@ export default async function MatchDetailPage({
     );
   }
 
-  const [lineups, stats, players, prediction] = await Promise.all([
+  const [lineups, stats, players, prediction, visuals] = await Promise.all([
     getFixtureLineups(params.id, match.homeTeam.logo, match.awayTeam.logo),
     getFixtureStatistics(
       params.id,
@@ -79,6 +80,7 @@ export default async function MatchDetailPage({
     ),
     getFixturePlayers(params.id),
     getMatchPrediction(params.id),
+    getShotmapData(params.id),
   ]);
 
   const isLive = match.status === 'live';
@@ -232,6 +234,7 @@ export default async function MatchDetailPage({
             stats={stats}
             players={players}
             prediction={prediction}
+            visuals={visuals}
           />
         </div>
       </main>
