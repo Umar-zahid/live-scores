@@ -515,7 +515,8 @@ export interface MatchVisualData {
 }
 
 export async function getShotmapData(
-  fixtureId: string
+  fixtureId: string,
+  isLive = false
 ): Promise<MatchVisualData | null> {
   if (!fixtureId.startsWith('bz-')) return null;
   const numericId = fixtureId.slice(3);
@@ -629,14 +630,17 @@ export type FixtureStats = {
 export async function getFixtureStatistics(
   fixtureId: string,
   homeTeam?: { id: number; name: string },
-  awayTeam?: { id: number; name: string }
+  awayTeam?: { id: number; name: string },
+  isLive = false
 ): Promise<FixtureStats[]> {
   const isBz = fixtureId.startsWith('bz-');
   const numericId = isBz ? fixtureId.slice(3) : fixtureId;
 
-  // Try Bzzoiro first
+  // Try Bzzoiro first — only for bz- IDs. Sending an API-Football
+  // numeric ID to the Bzzoiro endpoint would return another match's
+  // stats (different ID namespaces).
   try {
-    const bz = await getBzzoiroEventStats(numericId);
+    const bz = isBz ? await getBzzoiroEventStats(numericId, isLive) : null;
     if (bz) {
       const mapped = bzzoiroStatsToFixtureStats(
         bz,

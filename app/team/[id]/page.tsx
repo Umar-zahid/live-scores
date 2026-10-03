@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { isValidTeamId } from '@/lib/id-guards';
 
 const KEY = process.env.API_FOOTBALL_KEY;
 const BASE = 'https://v3.football.api-sports.io';
