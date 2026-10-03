@@ -340,3 +340,111 @@ export async function getBzzoiroLeagues(): Promise<BzzoiroLeague[]> {
   );
   return data?.results ?? [];
 }
+
+// ─── League season / standings / top scorers (Bzzoiro v2) ────────
+
+export interface BzzoiroSeasonInfo {
+  league_id: number;
+  season: {
+    id: number;
+    name: string;
+    year: number;
+    start_date: string;
+    end_date: string;
+    is_current: boolean;
+    stages?: Array<{
+      stage: string;
+      stage_name: string;
+      matches: number;
+      rounds: number;
+      start_date: string;
+      end_date: string;
+    }>;
+  };
+}
+
+export interface BzzoiroZone {
+  key: string;
+  label: string;
+  type: string;
+}
+
+export interface BzzoiroStandingRow {
+  position: number;
+  team_id: number;
+  team_name: string;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  gf: number;
+  ga: number;
+  gd: number;
+  pts: number;
+  xgf?: number;
+  xga?: number;
+  xgd?: number;
+  xg_games?: number;
+  form?: string;
+  live?: boolean;
+  zone?: BzzoiroZone | null;
+}
+
+export interface BzzoiroStandingsResponse {
+  league_id: number;
+  season: BzzoiroSeasonInfo['season'];
+  grouped?: boolean;
+  zones?: BzzoiroZone[];
+  standings: BzzoiroStandingRow[];
+}
+
+export interface BzzoiroScorerEntry {
+  player_id: number;
+  player_name?: string;
+  name?: string;
+  short_name?: string;
+  team_id?: number;
+  team_name?: string;
+  value?: number;
+  goals?: number;
+  matches?: number;
+  assists?: number;
+  position?: number;
+  rank?: number;
+}
+
+export interface BzzoiroTopResponse {
+  league_id: number;
+  team_id?: number | null;
+  season: BzzoiroSeasonInfo['season'];
+  stat: string;
+  label: string;
+  leaders: BzzoiroScorerEntry[];
+}
+
+export async function getBzzoiroLeagueSeason(
+  leagueId: number
+): Promise<BzzoiroSeasonInfo | null> {
+  return await fetchJson<BzzoiroSeasonInfo>(`/leagues/${leagueId}/season/`, 3600);
+}
+
+export async function getBzzoiroLeagueStandings(
+  leagueId: number,
+  seasonId: number
+): Promise<BzzoiroStandingsResponse | null> {
+  return await fetchJson<BzzoiroStandingsResponse>(
+    `/leagues/${leagueId}/standings/?season_id=${seasonId}`,
+    3600
+  );
+}
+
+export async function getBzzoiroLeagueTop(
+  leagueId: number,
+  seasonId: number,
+  stat: 'scorers' | 'assists' = 'scorers'
+): Promise<BzzoiroTopResponse | null> {
+  return await fetchJson<BzzoiroTopResponse>(
+    `/leagues/${leagueId}/top/${stat}/?season_id=${seasonId}`,
+    3600
+  );
+}

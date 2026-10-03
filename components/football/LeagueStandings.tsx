@@ -17,10 +17,23 @@ function FormPill({ r }: { r: string }) {
   );
 }
 
+function zoneColor(zoneKey: string | undefined): string {
+  if (!zoneKey) return 'transparent';
+  const k = zoneKey.toLowerCase();
+  if (k.includes('cl') || k.includes('champions')) return '#4be277';
+  if (k.includes('el') || k.includes('europa')) return '#adc6ff';
+  if (k.includes('conf') || k.includes('conference')) return '#bccbb9';
+  if (k.includes('releg')) return '#ffb4ab';
+  if (k.includes('playoff') || k.includes('qual')) return '#facc15';
+  return 'transparent';
+}
+
 export default function LeagueStandings({
   standings,
+  seasonName,
 }: {
   standings: StandingRow[];
+  seasonName?: string;
 }) {
   if (!standings.length) return null;
 
@@ -33,6 +46,11 @@ export default function LeagueStandings({
         <h2 className="text-sm md:text-base font-extrabold uppercase tracking-tight text-on-surface">
           Standings
         </h2>
+        {seasonName && (
+          <span className="text-[10px] md:text-xs text-on-surface-variant ml-auto truncate">
+            {seasonName}
+          </span>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -56,7 +74,13 @@ export default function LeagueStandings({
                 key={r.teamId}
                 className="border-t border-surface-container-highest/30 hover:bg-surface-container/40 transition-colors"
               >
-                <td className="py-1.5 pl-2 md:pl-3 pr-1 text-center tabular-nums text-on-surface-variant font-bold">
+                <td className="relative py-1.5 pl-2 md:pl-3 pr-1 text-center tabular-nums text-on-surface-variant font-bold">
+                  {r.zoneKey && (
+                    <span
+                      className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r"
+                      style={{ background: zoneColor(r.zoneKey) }}
+                    />
+                  )}
                   {r.rank}
                 </td>
                 <td className="py-1.5 px-1">

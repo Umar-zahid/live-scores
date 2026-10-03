@@ -942,6 +942,12 @@ export interface StandingRow {
   points: number;
   form?: string;
   description?: string;
+  // Bzzoiro-only: xG + zone bands (undefined for API-Football rows)
+  xgFor?: number;
+  xgAgainst?: number;
+  zoneLabel?: string;
+  zoneKey?: string;
+  zoneType?: string;
 }
 
 export interface TopScorerRow {
@@ -1108,4 +1114,132 @@ export async function getLeagueTopScorers(
     console.warn(`getLeagueTopScorers: no data for league=${afLeagueId} across seasons ${seasons.join(', ')}`);
   }
   return null;
+}
+
+// ─── Bzzoiro-first league data (with API-Football fallback) ───────
+
+export interface LeagueDataResult<T> {
+  rows: T[] | null;
+  source: 'bzzoiro' | 'api-football' | 'none';
+  season?: number;
+  seasonName?: string;
+}
+
+import {
+  getBzzoiroLeagueSeason,
+  getBzzoiroLeagueStandings,
+  getBzzoiroLeagueTop,
+} from './sources/bzzoiro';
+
+export async function getLeagueStandingsWithFallback(
+  bzzoiroLeagueId: number,
+  afLeagueId?: number
+): Promise<LeagueDataResult<StandingRow>> {
+  // Try Bzzoiro first — current season, unlimited.
+  try {
+    const seasonInfo = await getBzzoiroLeagueSeason(bzzoiroLeagueId);
+    if (seasonInfo?.season?.id) {
+      const st = await getBzzoiroLeagueStandings(
+        bzzoiroLeagueId,
+        seasonInfo.season.id
+      );
+      if (st?.standings && st.standings.length > 0) {
+        const rows: StandingRow[] = st.standings.map((r) => ({
+          rank: r.position,
+          teamId: r.team_id,
+          teamName: r.team_name,
+          teamLogo: '',
+          played: r.played,
+          win: r.won,
+          draw: r.drawn,
+          lose: r.lost,
+          goalsFor: r.gf,
+          goalsAgainst: r.ga,
+          goalDiff: r.gd,
+          points: r.pts,
+          form: r.form ?? undefined,
+          xgFor: r.xgf,
+          xgAgainst: r.xga,
+          zoneLabel: r.zone?.label ?? undefined,
+          zoneKey: r.zone?.key ?? undefined,
+          zoneType: r.zone?.type ?? undefined,
+        }));
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            `getLeagueStandings: Bzzoiro ${seasonInfo.season.name} (${rows.length} rows)`
+          );
+        }
+        return {
+          rows,
+          source: 'bzzoiro',
+          season: seasonInfo.season.year,
+          seasonName: seasonInfo.season.name,
+        };
+      }
+    }
+  } catch (err) {
+    console.error('Bzzoiro standings failed:', err);
+  }
+
+  // Fall back to API-Football (capped at 2022-2024 on Free tier).
+  if (afLeagueId) {
+    const rows = await getLeagueStandings(afLeagueId);
+    if (rows && rows.length > 0) {
+      return { rows, source: 'api-football' };
+    }
+  }
+  return { rows: null, source: 'none' };
+}
+
+export async function getLeagueTopScorersWithFallback(
+  bzzoiroLeagueId: number,
+  afLeagueId?: number,
+  limit = 10
+): Promise<LeagueDataResult<TopScorerRow>> {
+  try {
+    const seasonInfo = await getBzzoiroLeagueSeason(bzzoiroLeagueId);
+    if (seasonInfo?.season?.id) {
+      const ts = await getBzzoiroLeagueTop(
+        bzzoiroLeagueId,
+        seasonInfo.season.id,
+        'scorers'
+      );
+      const leaders = ts?.leaders ?? [];
+      if (leaders.length > 0) {
+        const rows: TopScorerRow[] = leaders.slice(0, limit).map((r, i) => ({
+          rank: r.position ?? r.rank ?? i + 1,
+          playerId: r.player_id ?? 0,
+          playerName: r.player_name ?? r.name ?? r.short_name ?? '',
+          playerPhoto: '',
+          teamId: r.team_id ?? 0,
+          teamName: r.team_name ?? '',
+          teamLogo: '',
+          appearances: r.matches ?? 0,
+          goals: r.value ?? r.goals ?? 0,
+          assists: r.assists ?? 0,
+        }));
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            `getLeagueTopScorers: Bzzoiro ${seasonInfo.season.name} (${rows.length} scorers)`
+          );
+        }
+        return {
+          rows,
+          source: 'bzzoiro',
+          season: seasonInfo.season.year,
+          seasonName: seasonInfo.season.name,
+        };
+      }
+    }
+  } catch (err) {
+    console.error('Bzzoiro top scorers failed:', err);
+  }
+
+  if (afLeagueId) {
+    const rows = await getLeagueTopScorers(afLeagueId, limit);
+    if (rows && rows.length > 0) {
+      return { rows, source: 'api-football' };
+    }
+  }
+  return { rows: null, source: 'none' };
 }

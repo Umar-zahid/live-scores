@@ -4,8 +4,8 @@ import {
   getBzzoiroEventsInRange,
 } from '@/lib/sources/bzzoiro';
 import {
-  getLeagueStandings,
-  getLeagueTopScorers,
+  getLeagueStandingsWithFallback,
+  getLeagueTopScorersWithFallback,
 } from '@/lib/football-api';
 import { findLeagueById } from '@/lib/sources/leagues';
 import { resolveLeagueName } from '@/lib/sources/league-names';
@@ -74,11 +74,16 @@ export default async function LeaguePage({
   const league = findLeagueById(leagueId);
   if (!league) notFound();
 
-  const [fixtures, standings, topScorers] = await Promise.all([
+  const [fixtures, standingsRes, topScorersRes] = await Promise.all([
     getLeagueFixtures(league.id),
-    league.afId ? getLeagueStandings(league.afId) : Promise.resolve(null),
-    league.afId ? getLeagueTopScorers(league.afId) : Promise.resolve(null),
+    getLeagueStandingsWithFallback(league.id, league.afId),
+    getLeagueTopScorersWithFallback(league.id, league.afId),
   ]);
+
+  const standings = standingsRes.rows;
+  const topScorers = topScorersRes.rows;
+  const standingsSeasonName =
+    standingsRes.source === 'bzzoiro' ? standingsRes.seasonName : undefined;
 
   const displayName = resolveLeagueName(league.id, league.name);
 
@@ -117,7 +122,7 @@ export default async function LeaguePage({
 
           {/* Standings */}
           {standings && standings.length > 0 && (
-            <LeagueStandings standings={standings} />
+            <LeagueStandings standings={standings} seasonName={standingsSeasonName} />
           )}
 
           {/* Fixtures */}
