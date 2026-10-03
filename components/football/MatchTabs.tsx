@@ -6,6 +6,7 @@ import type { FixtureStats, FixturePlayer, MatchPrediction } from '@/lib/footbal
 import Lineups from './Lineups';
 import PlayerRatings from './PlayerRatings';
 import PredictionsTab from './PredictionsTab';
+import { computeIncidentRatings, type BasicRating } from '@/lib/player-ratings';
 
 const eventTypeLabel: Record<string, string> = {
   goal: 'Goal',
@@ -291,6 +292,19 @@ export default function MatchTabs({
 }) {
   const [tab, setTab] = useState<TabId>('overview');
 
+  // Incident-derived ratings — used when API-Football per-player stats are missing.
+  // Works for every match that has lineups + events (all Bzzoiro matches).
+  const incidentRatings: BasicRating[] = computeIncidentRatings({
+    lineups,
+    events: match.events ?? [],
+    homeScore: match.homeTeam.score,
+    awayScore: match.awayTeam.score,
+  });
+
+  const ratingMap = new Map<number, number>(
+    incidentRatings.map((r) => [r.playerId, r.rating])
+  );
+
   const tabs: { id: TabId; label: string; icon: string }[] = [
     { id: 'overview', label: 'Overview', icon: 'history' },
     { id: 'lineups', label: 'Lineups', icon: 'groups' },
@@ -328,7 +342,7 @@ export default function MatchTabs({
         {tab === 'overview' && <OverviewTab match={match} />}
         {tab === 'lineups' &&
           (lineups.length > 0 ? (
-            <Lineups lineups={lineups} />
+            <Lineups lineups={lineups} ratings={ratingMap} />
           ) : (
             <div className="rounded-xl bg-surface-container-low/40 border border-surface-container-highest/30 p-8 text-center">
               <span className="material-symbols-outlined text-[40px] text-on-surface-variant mb-2">
@@ -349,7 +363,16 @@ export default function MatchTabs({
             awayName={match.awayTeam.name}
           />
         )}
-        {tab === 'ratings' && <PlayerRatings players={players} />}
+        {tab === 'ratings' && (
+          <PlayerRatings
+            players={players}
+            incidentRatings={incidentRatings}
+            homeName={match.homeTeam.name}
+            awayName={match.awayTeam.name}
+            homeLogo={match.homeTeam.logo}
+            awayLogo={match.awayTeam.logo}
+          />
+        )}
         {tab === 'predictions' && (
           <PredictionsTab
             prediction={prediction}

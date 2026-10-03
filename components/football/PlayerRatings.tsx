@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { FixturePlayer } from '@/lib/football-api';
+import type { BasicRating } from '@/lib/player-ratings';
 import { explainRating, displayRating } from '@/lib/ratings';
 
 function colorForRating(rating: number): { bg: string; fg: string } {
@@ -17,30 +18,22 @@ function RatingBadge({ rating }: { rating: number }) {
   return (
     <span
       className="shrink-0 inline-flex items-center justify-center font-black tabular-nums"
-      style={{
-        width: 38,
-        height: 34,
-        borderRadius: 8,
-        background: bg,
-        color: fg,
-        fontSize: 13,
-      }}
+      style={{ width: 38, height: 34, borderRadius: 8, background: bg, color: fg, fontSize: 13 }}
     >
       {displayRating(rating)}
     </span>
   );
 }
 
-function positionLabel(group: FixturePlayer['positionGroup']): string {
-  return group === 'UNKNOWN' ? '—' : group;
-}
+// ─── Rich rows (API-Football data with full stat breakdown) ─────────
 
-function PlayerRow({ player }: { player: FixturePlayer }) {
+function RichRow({ player }: { player: FixturePlayer }) {
   const [open, setOpen] = useState(false);
   const breakdown = explainRating(
     player.stats,
     player.positionGroup === 'UNKNOWN' ? 'MID' : player.positionGroup
   );
+  const posLabel = player.positionGroup === 'UNKNOWN' ? '—' : player.positionGroup;
 
   return (
     <div className="rounded-lg border border-surface-container-highest/30 bg-surface-container-low/30">
@@ -73,9 +66,7 @@ function PlayerRow({ player }: { player: FixturePlayer }) {
             )}
           </div>
           <div className="text-[10px] text-on-surface-variant">
-            {positionLabel(player.positionGroup)}
-            {' · '}
-            {player.minutes}′
+            {posLabel} · {player.minutes}′
           </div>
         </div>
         <RatingBadge rating={player.rating} />
@@ -91,9 +82,7 @@ function PlayerRow({ player }: { player: FixturePlayer }) {
             {breakdown.delta.toFixed(2)} · minutes×{breakdown.minutesFactor.toFixed(2)}
           </div>
           {breakdown.lines.length === 0 ? (
-            <div className="text-on-surface-variant/70">
-              No notable contributions.
-            </div>
+            <div className="text-on-surface-variant/70">No notable contributions.</div>
           ) : (
             <ul className="flex flex-col gap-0.5">
               {breakdown.lines.map((line, i) => (
@@ -116,7 +105,67 @@ function PlayerRow({ player }: { player: FixturePlayer }) {
   );
 }
 
-function TeamSection({
+// ─── Basic rows (incident-derived ratings) ──────────────────────────
+
+function BasicRow({ r }: { r: BasicRating }) {
+  const [open, setOpen] = useState(false);
+  const posLabel = r.position === 'G' ? 'GK' : r.position === 'D' ? 'DEF' : r.position === 'M' ? 'MID' : r.position === 'F' ? 'FWD' : '—';
+  const delta = r.rating - 6.0;
+
+  return (
+    <div className="rounded-lg border border-surface-container-highest/30 bg-surface-container-low/30">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-2 sm:gap-3 p-2.5 hover:bg-surface-container/50 transition-colors text-left"
+      >
+        {r.jerseyNumber != null && (
+          <span className="hidden sm:inline text-[10px] font-bold text-on-surface-variant tabular-nums w-6 text-right shrink-0">
+            {r.jerseyNumber}
+          </span>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-bold text-on-surface truncate">{r.playerName}</div>
+          <div className="text-[10px] text-on-surface-variant">{posLabel}</div>
+        </div>
+        <RatingBadge rating={r.rating} />
+        <span className="material-symbols-outlined text-on-surface-variant text-[18px] shrink-0">
+          {open ? 'expand_less' : 'expand_more'}
+        </span>
+      </button>
+
+      {open && (
+        <div className="border-t border-surface-container-highest/30 px-3 py-2.5 text-[11px]">
+          <div className="text-on-surface-variant mb-1.5">
+            Base 6.0 · Δ {delta >= 0 ? '+' : ''}{delta.toFixed(2)}
+          </div>
+          {r.lines.length === 0 ? (
+            <div className="text-on-surface-variant/70">No notable contributions.</div>
+          ) : (
+            <ul className="flex flex-col gap-0.5">
+              {r.lines.map((line, i) => (
+                <li key={i} className="flex items-center justify-between">
+                  <span className="text-on-surface-variant">{line.label}</span>
+                  <span
+                    className="tabular-nums font-bold"
+                    style={{ color: line.delta >= 0 ? '#4be277' : '#ffb4ab' }}
+                  >
+                    {line.delta >= 0 ? '+' : ''}
+                    {line.delta.toFixed(2)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Sections ───────────────────────────────────────────────────────
+
+function RichTeamSection({
   name,
   logo,
   players,
@@ -138,46 +187,100 @@ function TeamSection({
         </span>
       </div>
       <div className="flex flex-col gap-1.5">
-        {sorted.map((p) => (
-          <PlayerRow key={`${p.team}-${p.playerId}`} player={p} />
-        ))}
+        {sorted.map((p) => <RichRow key={`${p.team}-${p.playerId}`} player={p} />)}
       </div>
     </div>
   );
 }
 
+function BasicTeamSection({ ratings }: { ratings: BasicRating[] }) {
+  const sorted = [...ratings].sort((a, b) => b.rating - a.rating);
+  return (
+    <div className="flex flex-col gap-1.5">
+      {sorted.map((r) => <BasicRow key={r.playerId} r={r} />)}
+    </div>
+  );
+}
+
+// ─── Main ───────────────────────────────────────────────────────────
+
 export default function PlayerRatings({
   players,
+  incidentRatings,
+  homeName,
+  awayName,
+  homeLogo,
+  awayLogo,
 }: {
   players: FixturePlayer[];
+  incidentRatings?: BasicRating[];
+  homeName?: string;
+  awayName?: string;
+  homeLogo?: string;
+  awayLogo?: string;
 }) {
-  if (!players.length) {
+  // Prefer rich API-Football data when available
+  if (players.length > 0) {
+    const homePlayers = players.filter((p) => p.team === 'home');
+    const awayPlayers = players.filter((p) => p.team === 'away');
+    const hName = homePlayers[0]?.teamName ?? 'Home';
+    const aName = awayPlayers[0]?.teamName ?? 'Away';
+    const hLogo = homePlayers[0]?.teamLogo ?? '';
+    const aLogo = awayPlayers[0]?.teamLogo ?? '';
     return (
-      <div className="rounded-xl bg-surface-container-low/40 border border-surface-container-highest/30 p-8 text-center">
-        <span className="material-symbols-outlined text-[40px] text-on-surface-variant mb-2">
-          grade
-        </span>
-        <p className="text-sm text-on-surface-variant">
-          Player ratings aren&apos;t available for this match.
-        </p>
-        <p className="text-[10px] text-on-surface-variant/70 mt-1">
-          Only top leagues have per-player stats.
-        </p>
+      <div className="flex flex-col gap-6">
+        <RichTeamSection name={hName} logo={hLogo} players={homePlayers} />
+        <RichTeamSection name={aName} logo={aLogo} players={awayPlayers} />
       </div>
     );
   }
 
-  const homePlayers = players.filter((p) => p.team === 'home');
-  const awayPlayers = players.filter((p) => p.team === 'away');
-  const homeName = homePlayers[0]?.teamName ?? 'Home';
-  const awayName = awayPlayers[0]?.teamName ?? 'Away';
-  const homeLogo = homePlayers[0]?.teamLogo ?? '';
-  const awayLogo = awayPlayers[0]?.teamLogo ?? '';
+  // Fall back to incident-derived ratings
+  if (incidentRatings && incidentRatings.length > 0) {
+    const home = incidentRatings.filter((r) => r.team === 'home');
+    const away = incidentRatings.filter((r) => r.team === 'away');
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 pb-2 border-b border-surface-container-highest/30">
+            {homeLogo && <img src={homeLogo} alt="" className="w-6 h-6 object-contain" />}
+            <span className="text-xs font-bold uppercase tracking-wider text-on-surface truncate">
+              {homeName ?? 'Home'}
+            </span>
+            <span className="text-[10px] text-on-surface-variant ml-auto shrink-0">
+              {home.length} players
+            </span>
+          </div>
+          <BasicTeamSection ratings={home} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 pb-2 border-b border-surface-container-highest/30">
+            {awayLogo && <img src={awayLogo} alt="" className="w-6 h-6 object-contain" />}
+            <span className="text-xs font-bold uppercase tracking-wider text-on-surface truncate">
+              {awayName ?? 'Away'}
+            </span>
+            <span className="text-[10px] text-on-surface-variant ml-auto shrink-0">
+              {away.length} players
+            </span>
+          </div>
+          <BasicTeamSection ratings={away} />
+        </div>
+        <div className="text-[10px] text-on-surface-variant/70 text-center pt-1">
+          Ratings derived from match incidents · Formula v1 (base 6.0 + goals/assists/cards + result)
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <TeamSection name={homeName} logo={homeLogo} players={homePlayers} />
-      <TeamSection name={awayName} logo={awayLogo} players={awayPlayers} />
+    <div className="rounded-xl bg-surface-container-low/40 border border-surface-container-highest/30 p-8 text-center">
+      <span className="material-symbols-outlined text-[40px] text-on-surface-variant mb-2">grade</span>
+      <p className="text-sm text-on-surface-variant">
+        Player ratings aren&apos;t available for this match.
+      </p>
+      <p className="text-[10px] text-on-surface-variant/70 mt-1">
+        Lineups and events are required to compute ratings.
+      </p>
     </div>
   );
 }
