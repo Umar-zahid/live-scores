@@ -236,25 +236,30 @@ function bzzoiroStatus(e: BzzoiroEvent): MatchStatus {
     return 'upcoming';
   }
 
-  // Postponed / cancelled / abandoned / suspended / interrupted /
-  // awarded / walkover — no live score will appear. Left in Upcoming
-  // they'd sit there forever with a "—" score.
+  // Postponed / cancelled / abandoned — no result. The feeds drop these
+  // rows; a direct match link must not show a fake FT 0-0.
   if (
-    raw === 'postponed' ||
-    raw === 'pst' ||
-    raw === 'cancelled' ||
-    raw === 'canceled' ||
-    raw === 'canc' ||
-    raw === 'suspended' ||
-    raw === 'susp' ||
-    raw === 'abandoned' ||
-    raw === 'abd' ||
-    raw === 'interrupted' ||
-    raw === 'int' ||
-    raw === 'awarded' ||
-    raw === 'awd' ||
-    raw === 'walkover' ||
-    raw === 'wo'
+    raw === 'postponed' || raw === 'pst' ||
+    raw === 'cancelled' || raw === 'canceled' || raw === 'canc' ||
+    raw === 'abandoned' || raw === 'abd'
+  ) {
+    return 'upcoming';
+  }
+
+  // Suspended / interrupted can resume the same day — decide by time.
+  if (
+    raw === 'suspended' || raw === 'susp' ||
+    raw === 'interrupted' || raw === 'int'
+  ) {
+    const kickoff = e.event_date ? new Date(e.event_date).getTime() : 0;
+    const mins = kickoff > 0 ? (Date.now() - kickoff) / 60000 : 0;
+    return mins > 0 && mins < 200 ? 'live' : 'finished';
+  }
+
+  // Awarded / walkover — a decision was made; treat as finished.
+  if (
+    raw === 'awarded' || raw === 'awd' ||
+    raw === 'walkover' || raw === 'wo'
   ) {
     return 'finished';
   }
