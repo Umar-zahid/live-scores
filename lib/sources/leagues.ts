@@ -3,22 +3,23 @@
 // Verified against https://sports.bzzoiro.com/api/v2/leagues/.
 
 export interface LeagueInfo {
-  id: number;
+  id: number;            // Bzzoiro league ID
+  afId?: number;         // API-Football league ID (for standings / top scorers)
   name: string;
   country: string;
-  tier: 1 | 2; // 1 = top division / international / European cup, 2 = second tier / domestic cup
+  tier: 1 | 2;           // 1 = top division / international / European cup, 2 = second tier / domestic cup
 }
 
 export const MAJOR_LEAGUES: LeagueInfo[] = [
   // ─── Big-5 European leagues ───
-  { id: 1,  name: 'Premier League',        country: 'England',     tier: 1 },
-  { id: 3,  name: 'La Liga',               country: 'Spain',       tier: 1 },
-  { id: 4,  name: 'Serie A',               country: 'Italy',       tier: 1 },
-  { id: 5,  name: 'Bundesliga',            country: 'Germany',     tier: 1 },
-  { id: 6,  name: 'Ligue 1',               country: 'France',      tier: 1 },
+  { id: 1,  afId: 39,  name: 'Premier League',        country: 'England',     tier: 1 },
+  { id: 3,  afId: 140, name: 'La Liga',               country: 'Spain',       tier: 1 },
+  { id: 4,  afId: 135, name: 'Serie A',               country: 'Italy',       tier: 1 },
+  { id: 5,  afId: 78,  name: 'Bundesliga',            country: 'Germany',     tier: 1 },
+  { id: 6,  afId: 61,  name: 'Ligue 1',               country: 'France',      tier: 1 },
 
   // ─── Other top European divisions ───
-  { id: 2,  name: 'Primeira Liga',         country: 'Portugal',    tier: 1 },
+  { id: 2,  afId: 94,  name: 'Primeira Liga',         country: 'Portugal',    tier: 1 },
   { id: 10, name: 'Eredivisie',            country: 'Netherlands', tier: 1 },
   { id: 11, name: 'Süper Lig',             country: 'Turkey',      tier: 1 },
   { id: 13, name: 'Scottish Premiership',  country: 'Scotland',    tier: 1 },
@@ -34,7 +35,7 @@ export const MAJOR_LEAGUES: LeagueInfo[] = [
   { id: 99, name: 'Czech First League',    country: 'Czechia',     tier: 1 },
 
   // ─── Big-5 second tiers + England ───
-  { id: 12, name: 'Championship',          country: 'England',     tier: 2 },
+  { id: 12, afId: 40,  name: 'Championship',          country: 'England',     tier: 2 },
   { id: 86, name: 'League One',            country: 'England',     tier: 2 },
   { id: 87, name: 'League Two',            country: 'England',     tier: 2 },
   { id: 89, name: 'Ligue 2',               country: 'France',      tier: 2 },
@@ -53,9 +54,9 @@ export const MAJOR_LEAGUES: LeagueInfo[] = [
   { id: 85, name: 'Liga Profesional',      country: 'Argentina',   tier: 1 },
 
   // ─── European club cups ───
-  { id: 7,  name: 'Champions League',      country: 'Europe',      tier: 1 },
-  { id: 8,  name: 'Europa League',         country: 'Europe',      tier: 1 },
-  { id: 83, name: 'Conference League',     country: 'Europe',      tier: 1 },
+  { id: 7,  afId: 2,   name: 'Champions League',      country: 'Europe',      tier: 1 },
+  { id: 8,  afId: 3,   name: 'Europa League',         country: 'Europe',      tier: 1 },
+  { id: 83, afId: 848, name: 'Conference League',     country: 'Europe',      tier: 1 },
   { id: 90, name: 'UEFA Super Cup',        country: 'Europe',      tier: 1 },
 
   // ─── South American club cups ───
@@ -93,4 +94,17 @@ export const MAJOR_LEAGUE_IDS: number[] = MAJOR_LEAGUES.map((l) => l.id);
 
 export function isMajorLeagueId(id: number): boolean {
   return MAJOR_LEAGUE_IDS.includes(id);
+}
+
+export function findLeagueIdByName(name: string): number | null {
+  const hit = MAJOR_LEAGUES.find((l) => l.name === name);
+  return hit?.id ?? null;
+}
+
+export function findLeagueByAfId(afId: number): LeagueInfo | null {
+  return MAJOR_LEAGUES.find((l) => l.afId === afId) ?? null;
+}
+
+export function findLeagueById(id: number): LeagueInfo | null {
+  return MAJOR_LEAGUES.find((l) => l.id === id) ?? null;
 }

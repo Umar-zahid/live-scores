@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { FootballMatch } from '@/types';
-import { MAJOR_LEAGUES } from '@/lib/sources/leagues';
+import { MAJOR_LEAGUES, findLeagueIdByName } from '@/lib/sources/leagues';
 
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('en-GB', {
@@ -107,7 +108,9 @@ function StatusBadge({ match }: { match: FootballMatch }) {
 }
 
 function MatchRow({ match }: { match: FootballMatch }) {
+  const router = useRouter();
   const { homeTeam, awayTeam } = match;
+  const leagueId = findLeagueIdByName(match.league);
   const style = statusStyle[match.status] ?? statusStyle.upcoming;
   const isUpcoming = match.status === 'upcoming';
   const isFinished = match.status === 'finished';
@@ -131,9 +134,23 @@ function MatchRow({ match }: { match: FootballMatch }) {
               className="w-3.5 h-3.5 md:w-4 md:h-4 object-contain shrink-0"
             />
           )}
-          <span className="font-label-sm text-[9px] sm:text-label-sm text-on-surface-variant tracking-wider uppercase font-semibold truncate">
-            {match.league}
-          </span>
+          {leagueId != null ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                router.push(`/league/${leagueId}`);
+              }}
+              className="font-label-sm text-[9px] sm:text-label-sm text-on-surface-variant tracking-wider uppercase font-semibold truncate hover:text-primary transition-colors text-left"
+            >
+              {match.league}
+            </button>
+          ) : (
+            <span className="font-label-sm text-[9px] sm:text-label-sm text-on-surface-variant tracking-wider uppercase font-semibold truncate">
+              {match.league}
+            </span>
+          )}
         </div>
         <StatusBadge match={match} />
       </div>

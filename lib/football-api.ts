@@ -924,3 +924,134 @@ export async function getPlayerProfile(id: string): Promise<any | null> {
     return null;
   }
 }
+
+// ─── League standings + top scorers (API-Football) ────────────────
+
+export interface StandingRow {
+  rank: number;
+  teamId: number;
+  teamName: string;
+  teamLogo: string;
+  played: number;
+  win: number;
+  draw: number;
+  lose: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDiff: number;
+  points: number;
+  form?: string;
+  description?: string;
+}
+
+export interface TopScorerRow {
+  rank: number;
+  playerId: number;
+  playerName: string;
+  playerPhoto: string;
+  teamId: number;
+  teamName: string;
+  teamLogo: string;
+  appearances: number;
+  goals: number;
+  assists: number;
+}
+
+function currentSeason(): number {
+  const now = new Date();
+  // European season runs Aug-May — Jan-Jul is still the prior year's season.
+  return now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
+export async function getLeagueStandings(
+  afLeagueId: number
+): Promise<StandingRow[] | null> {
+  if (!KEY) return null;
+  try {
+    const season = currentSeason();
+    const res = await fetch(
+      `${BASE}/standings?league=${afLeagueId}&season=${season}`,
+      {
+        headers: { 'x-apisports-key': KEY },
+        next: { revalidate: 3600 },
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const bodyErrors = data?.errors;
+    const hasBodyErrors = Array.isArray(bodyErrors)
+      ? bodyErrors.length > 0
+      : bodyErrors && typeof bodyErrors === 'object' && Object.keys(bodyErrors).length > 0;
+    if (hasBodyErrors) return null;
+
+    const entry = data.response?.[0];
+    const groups =
+      entry?.league?.standings ?? entry?.standings ?? null;
+    if (!Array.isArray(groups) || !Array.isArray(groups[0])) return null;
+    const rows = groups[0];
+
+    return rows.map((r: any): StandingRow => ({
+      rank: r.rank ?? 0,
+      teamId: r.team?.id ?? 0,
+      teamName: r.team?.name ?? '',
+      teamLogo: r.team?.logo ?? '',
+      played: r.all?.played ?? 0,
+      win: r.all?.win ?? 0,
+      draw: r.all?.draw ?? 0,
+      lose: r.all?.lose ?? 0,
+      goalsFor: r.all?.goals?.for ?? 0,
+      goalsAgainst: r.all?.goals?.against ?? 0,
+      goalDiff: r.goalsDiff ?? 0,
+      points: r.points ?? 0,
+      form: r.form ?? undefined,
+      description: r.description ?? undefined,
+    }));
+  } catch (err) {
+    console.error('getLeagueStandings failed:', err);
+    return null;
+  }
+}
+
+export async function getLeagueTopScorers(
+  afLeagueId: number,
+  limit = 10
+): Promise<TopScorerRow[] | null> {
+  if (!KEY) return null;
+  try {
+    const season = currentSeason();
+    const res = await fetch(
+      `${BASE}/players/topscorers?league=${afLeagueId}&season=${season}`,
+      {
+        headers: { 'x-apisports-key': KEY },
+        next: { revalidate: 3600 },
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const bodyErrors = data?.errors;
+    const hasBodyErrors = Array.isArray(bodyErrors)
+      ? bodyErrors.length > 0
+      : bodyErrors && typeof bodyErrors === 'object' && Object.keys(bodyErrors).length > 0;
+    if (hasBodyErrors) return null;
+
+    const rows = data.response ?? [];
+    return rows.slice(0, limit).map((r: any, i: number): TopScorerRow => {
+      const st = r.statistics?.[0] ?? {};
+      return {
+        rank: i + 1,
+        playerId: r.player?.id ?? 0,
+        playerName: r.player?.name ?? '',
+        playerPhoto: r.player?.photo ?? '',
+        teamId: st.team?.id ?? 0,
+        teamName: st.team?.name ?? '',
+        teamLogo: st.team?.logo ?? '',
+        appearances: st.games?.appearences ?? 0,
+        goals: st.goals?.total ?? 0,
+        assists: st.goals?.assists ?? 0,
+      };
+    });
+  } catch (err) {
+    console.error('getLeagueTopScorers failed:', err);
+    return null;
+  }
+}
