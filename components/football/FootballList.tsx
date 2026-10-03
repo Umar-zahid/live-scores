@@ -95,11 +95,11 @@ function MatchRow({ match }: { match: FootballMatch }) {
   return (
     <Link
       href={`/football/${match.id}`}
-      className={`match-card group relative block bg-surface-container-low/40 backdrop-blur-sm border border-surface-container-highest/40 rounded-lg p-3 md:p-5 overflow-hidden transition-all duration-200 hover:bg-surface-container-low/60 ${style.hover}`}
+      className={`match-card group relative block bg-surface-container-low/40 backdrop-blur-sm border border-surface-container-highest/40 rounded-lg p-3 md:p-4 overflow-hidden transition-all duration-200 hover:bg-surface-container-low/60 h-full ${style.hover}`}
     >
       <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${style.bar}`}></div>
 
-      <div className="flex items-center justify-between gap-2 pb-2.5 md:pb-3.5 border-b border-surface-container-highest/40">
+      <div className="flex items-center justify-between gap-2 pb-2 md:pb-2.5 border-b border-surface-container-highest/40">
         <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
           <span className={`${style.bullet} text-[10px] font-bold shrink-0`}>•</span>
           {match.leagueLogo && (
@@ -116,8 +116,8 @@ function MatchRow({ match }: { match: FootballMatch }) {
         <StatusBadge match={match} />
       </div>
 
-      <div className="py-3 md:py-4 grid grid-cols-12 items-center gap-1 md:gap-2">
-        <div className="col-span-5 flex items-center justify-end gap-1.5 md:gap-3 text-right min-w-0">
+      <div className="py-2.5 md:py-3 grid grid-cols-12 items-center gap-1 md:gap-2">
+        <div className="col-span-5 flex items-center justify-end gap-1.5 md:gap-2 text-right min-w-0">
           <div className="min-w-0 flex items-center justify-end gap-1 md:gap-1.5">
             {homeWon && (
               <span className="material-symbols-outlined text-primary text-[14px] shrink-0 hidden sm:inline">
@@ -125,20 +125,20 @@ function MatchRow({ match }: { match: FootballMatch }) {
               </span>
             )}
             <p
-              className={`text-[12px] sm:text-sm md:text-headline-md text-on-surface tracking-tight truncate font-extrabold transition-colors ${style.titleHover}`}
+              className={`text-[12px] sm:text-sm md:text-[15px] text-on-surface tracking-tight truncate font-extrabold transition-colors ${style.titleHover}`}
             >
               {homeTeam.name}
             </p>
           </div>
-          <div className="w-7 h-7 md:w-10 md:h-10 rounded-full bg-surface-container-highest border border-surface-container flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
+          <div className="w-7 h-7 md:w-9 md:h-9 rounded-full bg-surface-container-highest border border-surface-container flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
             {homeTeam.logo ? (
               <img
                 src={homeTeam.logo}
                 alt={homeTeam.name}
-                className="w-5 h-5 md:w-7 md:h-7 object-contain"
+                className="w-5 h-5 md:w-6 md:h-6 object-contain"
               />
             ) : (
-              <span className="text-[10px] md:text-headline-md font-black text-primary">
+              <span className="text-[10px] md:text-[12px] font-black text-primary">
                 {homeTeam.name.slice(0, 3).toUpperCase()}
               </span>
             )}
@@ -147,28 +147,28 @@ function MatchRow({ match }: { match: FootballMatch }) {
 
         <div className="col-span-2 flex flex-col items-center justify-center">
           <div
-            className={`flex items-center justify-center gap-1 md:gap-2 px-1.5 md:px-3 py-0.5 md:py-1 rounded border ${
+            className={`flex items-center justify-center gap-1 md:gap-2 px-1.5 md:px-2.5 py-0.5 md:py-1 rounded border ${
               isUpcoming
                 ? 'bg-surface-container-lowest/50 border-surface-container-highest/40'
                 : 'bg-surface-container-lowest/80 border-surface-container-highest/60'
             }`}
           >
             <span
-              className={`text-[15px] sm:text-lg md:text-score-display font-extrabold tabular-nums ${
+              className={`text-[15px] sm:text-base md:text-[20px] font-extrabold tabular-nums ${
                 isUpcoming ? 'text-outline' : 'text-on-surface'
               }`}
             >
               {isUpcoming ? '—' : homeTeam.score}
             </span>
             <span
-              className={`text-[11px] md:text-headline-md font-bold ${
+              className={`text-[11px] md:text-[14px] font-bold ${
                 isUpcoming ? 'text-outline/50' : 'text-outline'
               }`}
             >
               :
             </span>
             <span
-              className={`text-[15px] sm:text-lg md:text-score-display font-extrabold tabular-nums ${
+              className={`text-[15px] sm:text-base md:text-[20px] font-extrabold tabular-nums ${
                 isUpcoming || homeWon ? 'text-outline' : 'text-on-surface'
               }`}
             >
@@ -177,9 +177,9 @@ function MatchRow({ match }: { match: FootballMatch }) {
           </div>
         </div>
 
-        <div className="col-span-5 flex items-center justify-start gap-1.5 md:gap-3 text-left min-w-0">
+        <div className="col-span-5 flex items-center justify-start gap-1.5 md:gap-2 text-left min-w-0">
           <div
-            className={`w-7 h-7 md:w-10 md:h-10 rounded-full bg-surface-container-highest border border-surface-container flex items-center justify-center shrink-0 shadow-inner overflow-hidden ${
+            className={`w-7 h-7 md:w-9 md:h-9 rounded-full bg-surface-container-highest border border-surface-container flex items-center justify-center shrink-0 shadow-inner overflow-hidden ${
               homeWon ? 'opacity-75' : ''
             }`}
           >
@@ -187,17 +187,17 @@ function MatchRow({ match }: { match: FootballMatch }) {
               <img
                 src={awayTeam.logo}
                 alt={awayTeam.name}
-                className="w-5 h-5 md:w-7 md:h-7 object-contain"
+                className="w-5 h-5 md:w-6 md:h-6 object-contain"
               />
             ) : (
-              <span className="text-[10px] md:text-headline-md font-black text-secondary">
+              <span className="text-[10px] md:text-[12px] font-black text-secondary">
                 {awayTeam.name.slice(0, 3).toUpperCase()}
               </span>
             )}
           </div>
           <div className="min-w-0 flex items-center gap-1 md:gap-1.5">
             <p
-              className={`text-[12px] sm:text-sm md:text-headline-md tracking-tight truncate ${
+              className={`text-[12px] sm:text-sm md:text-[15px] tracking-tight truncate ${
                 homeWon
                   ? 'text-on-surface-variant font-semibold'
                   : 'text-on-surface font-extrabold'
@@ -214,7 +214,7 @@ function MatchRow({ match }: { match: FootballMatch }) {
         </div>
       </div>
 
-      <div className="pt-2.5 md:pt-3 border-t border-surface-container-highest/40 flex items-center justify-between text-on-surface-variant text-[10px] md:text-label-sm uppercase tracking-wider">
+      <div className="pt-2 md:pt-2.5 border-t border-surface-container-highest/40 flex items-center justify-between text-on-surface-variant text-[10px] md:text-label-sm uppercase tracking-wider">
         <span className="inline-flex items-center gap-1">
           <span className="material-symbols-outlined text-[12px] md:text-[14px] text-primary">
             info
@@ -230,7 +230,6 @@ function MatchRow({ match }: { match: FootballMatch }) {
 }
 
 function dateHeaderLabel(iso: string): string {
-  // iso is a YYYY-MM-DD string (UTC date)
   const d = new Date(iso + 'T00:00:00Z');
   const now = new Date();
   const todayUTC = Date.UTC(
@@ -275,7 +274,6 @@ export default function FootballList({ matches }: { matches: FootballMatch[] }) 
       : matches.filter((m) => m.league === selectedLeague);
   }, [matches, selectedLeague]);
 
-  // Split: Live (live + halftime) vs Upcoming. Finished matches are hidden.
   const liveMatches = useMemo(
     () =>
       filtered
@@ -292,12 +290,11 @@ export default function FootballList({ matches }: { matches: FootballMatch[] }) 
     [filtered]
   );
 
-  // Group upcoming by calendar date (UTC)
   const upcomingByDate = useMemo(() => {
     const groups: { date: string; matches: FootballMatch[] }[] = [];
     const map = new Map<string, FootballMatch[]>();
     for (const m of upcomingMatches) {
-      const key = m.startTime.slice(0, 10); // YYYY-MM-DD
+      const key = m.startTime.slice(0, 10);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(m);
     }
@@ -358,44 +355,57 @@ export default function FootballList({ matches }: { matches: FootballMatch[] }) 
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-6 md:gap-8">
-          {/* Live section */}
+        <div className="flex flex-col gap-8 md:gap-10">
+          {/* Live Matches section */}
           {liveMatches.length > 0 && (
-            <section className="flex flex-col gap-2 md:gap-space-md">
-              <h2 className="flex items-center gap-2 text-[11px] md:text-xs font-extrabold uppercase tracking-widest text-on-surface-variant pb-1">
-                <span className="relative flex h-2 w-2">
+            <section className="flex flex-col gap-3 md:gap-4">
+              <h2 className="flex items-center gap-2 text-[13px] md:text-sm font-extrabold uppercase tracking-widest text-on-surface pb-1">
+                <span className="relative flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-error"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-error"></span>
                 </span>
-                Live · {liveMatches.length}
+                Live Matches
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-error-container/30 text-error text-[10px] md:text-[11px] font-bold tracking-wider">
+                  {liveMatches.length}
+                </span>
               </h2>
-              {liveMatches.map((match) => (
-                <MatchRow key={match.id} match={match} />
-              ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                {liveMatches.map((match) => (
+                  <MatchRow key={match.id} match={match} />
+                ))}
+              </div>
             </section>
           )}
 
-          {/* Upcoming section, grouped by date */}
+          {/* Upcoming Matches section, grouped by date */}
           {upcomingMatches.length > 0 && (
-            <section className="flex flex-col gap-4 md:gap-6">
-              <h2 className="flex items-center gap-2 text-[11px] md:text-xs font-extrabold uppercase tracking-widest text-on-surface-variant pb-1">
-                <span className="material-symbols-outlined text-[14px] md:text-[16px]">
+            <section className="flex flex-col gap-5 md:gap-6">
+              <h2 className="flex items-center gap-2 text-[13px] md:text-sm font-extrabold uppercase tracking-widest text-on-surface pb-1">
+                <span className="material-symbols-outlined text-[16px] md:text-[18px] text-secondary">
                   schedule
                 </span>
-                Upcoming · {upcomingMatches.length}
+                Upcoming Matches
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-secondary/15 text-secondary text-[10px] md:text-[11px] font-bold tracking-wider">
+                  {upcomingMatches.length}
+                </span>
               </h2>
 
               {upcomingByDate.map(({ date, matches: dayMatches }) => (
-                <div key={date} className="flex flex-col gap-2 md:gap-space-md">
+                <div key={date} className="flex flex-col gap-3 md:gap-4">
                   <div className="flex items-center gap-3 pt-1">
                     <h3 className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-widest text-primary">
                       {dateHeaderLabel(date)}
                     </h3>
                     <div className="flex-1 h-px bg-surface-container-highest/60"></div>
+                    <span className="text-[10px] md:text-[11px] text-on-surface-variant font-bold">
+                      {dayMatches.length} match{dayMatches.length === 1 ? '' : 'es'}
+                    </span>
                   </div>
-                  {dayMatches.map((match) => (
-                    <MatchRow key={match.id} match={match} />
-                  ))}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                    {dayMatches.map((match) => (
+                      <MatchRow key={match.id} match={match} />
+                    ))}
+                  </div>
                 </div>
               ))}
             </section>
