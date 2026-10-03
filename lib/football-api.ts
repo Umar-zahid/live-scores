@@ -21,6 +21,7 @@ import {
 import { MAJOR_LEAGUE_IDS } from './sources/leagues';
 import { calculateRating, type PlayerStats, type Position } from './ratings';
 import { isValidMatchId } from './id-guards';
+import { resolveLeagueName } from './sources/league-names';
 import { unstable_cache } from 'next/cache';
 import { lsmGetPlayer } from './livescore';
 
@@ -313,7 +314,7 @@ function normalizeBzzoiroEvent(e: BzzoiroEvent): FootballMatch {
     id: `bz-${e.id}`,
     sport: 'football',
     status: bzzoiroStatus(e),
-    league: e.league_name ?? 'Unknown league',
+    league: resolveLeagueName(e.league_id, e.league_name),
     leagueCountry: '',
     startTime: e.event_date ?? '',
     homeTeam: {
