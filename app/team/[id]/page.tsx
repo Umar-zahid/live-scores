@@ -55,6 +55,8 @@ export default async function TeamPage({
 }: {
   params: { id: string };
 }) {
+  if (!isValidTeamId(params.id)) notFound();
+
   const [team, fixtures, squad] = await Promise.all([
     getTeam(params.id),
     getRecentFixtures(params.id),

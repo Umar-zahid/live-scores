@@ -20,13 +20,15 @@ import {
 } from './sources/bzzoiro-mappers';
 import { MAJOR_LEAGUE_IDS } from './sources/leagues';
 import { calculateRating, type PlayerStats, type Position } from './ratings';
+import { isValidMatchId } from './id-guards';
 import { unstable_cache } from 'next/cache';
 import { lsmGetPlayer } from './livescore';
 
 type TeamLogoEntry = { name: string; logo: string };
 const TEAM_LOGOS = teamLogosRaw as Record<string, TeamLogoEntry>;
 
-function normalizeTeamName(name: string): string {
+function normalizeTeamName(name: string | null | undefined): string {
+  if (!name) return '';
   return name
     .toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -80,8 +82,14 @@ function computeStatus(raw: ApiFixture): MatchStatus {
 
   const elapsed = (Date.now() - new Date(raw.fixture.date).getTime()) / 60000;
   if (s === 'HT') return elapsed > 130 ? 'finished' : 'halftime';
-  if (['1H', '2H', 'ET', 'BT', 'P', 'LIVE', 'SUSP', 'INT'].includes(s)) {
+  if (['1H', '2H', 'LIVE', 'SUSP', 'INT'].includes(s)) {
     if (elapsed > 130) return 'finished';
+    return 'live';
+  }
+  // Extra time and penalty shootouts legitimately run to ~200 minutes.
+  // Using the 130-min cutoff here flipped them to 'finished' while still live.
+  if (['ET', 'BT', 'P'].includes(s)) {
+    if (elapsed > 200) return 'finished';
     return 'live';
   }
   return 'upcoming';
@@ -102,9 +110,19 @@ function computeMinute(raw: ApiFixture): number | undefined {
 }
 
 function mapEventType(type: string, detail: string): string {
-  if (type === 'Goal') return 'goal';
-  if (type === 'Card' && detail === 'Yellow Card') return 'yellow_card';
-  if (type === 'Card' && detail === 'Red Card') return 'red_card';
+  const d = (detail ?? '').toLowerCase();
+  if (type === 'Goal') {
+    // API-Football reports missed penalties as type='Goal',
+    // detail='Missed Penalty' — those must not count as goals.
+    if (d.includes('missed')) return 'other';
+    return 'goal';
+  }
+  if (type === 'Card') {
+    if (d === 'yellow card') return 'yellow_card';
+    if (d === 'red card') return 'red_card';
+    if (d.includes('second yellow')) return 'red_card';
+    return 'other';
+  }
   if (type === 'subst') return 'substitution';
   return 'other';
 }
@@ -194,7 +212,11 @@ function bzzoiroStatus(e: BzzoiroEvent): MatchStatus {
     raw === 'aet' ||
     raw === 'after_extra_time' ||
     raw === 'pen' ||
+    raw === 'penalties' ||
+    raw === 'penalty_shootout' ||
+    raw === 'shootout' ||
     raw === 'after_penalties' ||
+    raw === 'after_penalty_shootout' ||
     period === 'ft' ||
     period === 'full_time'
   ) {
@@ -252,9 +274,9 @@ function normalizeBzzoiroEvent(e: BzzoiroEvent): FootballMatch {
     id: `bz-${e.id}`,
     sport: 'football',
     status: bzzoiroStatus(e),
-    league: e.league_name,
+    league: e.league_name ?? 'Unknown league',
     leagueCountry: '',
-    startTime: e.event_date,
+    startTime: e.event_date ?? new Date().toISOString(),
     homeTeam: {
       id: e.home_team_id,
       name: e.home_team,
@@ -288,7 +310,10 @@ async function getMajorLeagueMatches(): Promise<FootballMatch[]> {
   const seen = new Set<string>();
   const deduped: BzzoiroEvent[] = [];
   for (const e of all) {
-    const key = `${e.home_team_id}-${e.away_team_id}-${e.event_date.slice(0, 13)}`;
+    // A single malformed row (TBD cup fixture with null fields) must not
+    // throw — Promise.allSettled would swallow the whole batch and
+    // /football would show only the live feed.
+    const key = `${e.home_team_id ?? 'x'}-${e.away_team_id ?? 'x'}-${(e.event_date ?? '').slice(0, 13)}`;
     if (seen.has(key)) continue;
     seen.add(key);
     deduped.push(e);
@@ -361,6 +386,10 @@ export async function getFootballMatches(): Promise<FootballMatch[]> {
 export async function getFootballMatchById(
   id: string
 ): Promise<FootballMatch | null> {
+  // Reject anything that isn't a valid match ID shape before hitting
+  // upstream APIs — a garbage ID would burn quota and pollute the cache.
+  if (!isValidMatchId(id)) return null;
+
   // Bzzoiro match
   if (id.startsWith('bz-')) {
     const numericId = id.slice(3);
@@ -529,19 +558,25 @@ export async function getFixtureLineups(
   const isBz = fixtureId.startsWith('bz-');
   const numericId = isBz ? fixtureId.slice(3) : fixtureId;
 
-  // Try Bzzoiro first
-  try {
-    const bz = await getBzzoiroEventLineups(numericId);
-    if (bz && bz.lineups?.home && bz.lineups?.away) {
-      const mapped = bzzoiroLineupsToTeamLineups(bz, homeLogo, awayLogo);
-      if (mapped) return mapped;
+  // Bzzoiro path — only when the fixture ID is actually a Bzzoiro ID.
+  // Never send an API-Football numeric ID to the Bzzoiro endpoint:
+  // the ID namespaces are different, and a collision would return
+  // another match's lineups under the right team names.
+  if (isBz) {
+    try {
+      const bz = await getBzzoiroEventLineups(numericId);
+      if (bz && bz.lineups?.home && bz.lineups?.away) {
+        const mapped = bzzoiroLineupsToTeamLineups(bz, homeLogo, awayLogo);
+        if (mapped) return mapped;
+      }
+    } catch (err) {
+      console.error('Bzzoiro lineups failed:', err);
     }
-  } catch (err) {
-    console.error('Bzzoiro lineups failed:', err);
+    return [];
   }
 
-  // Fall back to API-Football (only for API-Football IDs)
-  if (isBz || !KEY) return [];
+  // API-Football path
+  if (!KEY) return [];
   try {
     const res = await fetch(`${BASE}/fixtures/lineups?fixture=${numericId}`, {
       headers: { 'x-apisports-key': KEY },
@@ -759,10 +794,13 @@ export async function getFixturePlayers(
         };
 
         const positionGroup = mapPosition(games.position ?? '');
-        const rating =
-          positionGroup === 'UNKNOWN'
-            ? 6.0
-            : calculateRating(stats, positionGroup);
+        // Use MID as the fallback so the badge rating matches the
+        // expanded breakdown in PlayerRatings.tsx (which also falls back
+        // to MID). Otherwise the badge shows 6.0 while the breakdown
+        // computes as a midfielder.
+        const ratingPosition: Position =
+          positionGroup === 'UNKNOWN' ? 'MID' : positionGroup;
+        const rating = calculateRating(stats, ratingPosition);
 
         out.push({
           playerId: p.id ?? 0,

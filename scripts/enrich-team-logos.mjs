@@ -11,7 +11,7 @@ const KEY = process.env.API_FOOTBALL_KEY;
 if (!KEY) { console.error('Missing API_FOOTBALL_KEY'); process.exit(1); }
 
 const BASE = 'https://v3.football.api-sports.io';
-const SEASON = 2024;
+const SEASON = new Date().getFullYear();
 const OUT = path.join('data', 'team-logos.json');
 const SLEEP_MS = 6500; // 10 req/min max → 6s is safe with margin
 

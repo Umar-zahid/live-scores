@@ -64,28 +64,41 @@ export default function SearchBar() {
     return () => document.removeEventListener('mousedown', onClick);
   }, [open]);
 
-  // Debounced fetch
+  // Debounced fetch with abort + request-id guard so a stale "mess"
+  // response can't overwrite a newer "messi" one.
+  const reqIdRef = useRef(0);
   useEffect(() => {
     if (q.trim().length < 2) {
       setPlayers([]);
       setTeams([]);
+      setLoading(false);
       return;
     }
+    const myReq = ++reqIdRef.current;
     setLoading(true);
+    const ctrl = new AbortController();
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
+          signal: ctrl.signal,
+        });
         const data = await res.json();
+        if (myReq !== reqIdRef.current) return;
         setPlayers(data.players ?? []);
         setTeams(data.teams ?? []);
-      } catch {
+      } catch (err: unknown) {
+        if ((err as { name?: string })?.name === 'AbortError') return;
+        if (myReq !== reqIdRef.current) return;
         setPlayers([]);
         setTeams([]);
       } finally {
-        setLoading(false);
+        if (myReq === reqIdRef.current) setLoading(false);
       }
     }, 300);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
   }, [q]);
 
   const go = useCallback(

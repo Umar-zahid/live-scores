@@ -52,7 +52,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q')?.trim();
 
-  if (!q || q.length < 2) {
+  if (!q || q.length < 2 || q.length > 64) {
     return NextResponse.json({ players: [], teams: [] });
   }
 

@@ -21,8 +21,9 @@ interface AfPlayerBasic {
 async function getApiFootballPlayer(id: string): Promise<AfPlayerBasic | null> {
   if (!AF_KEY) return null;
   try {
-    // Try current season first, fall back to 2023.
-    for (const season of [2024, 2023]) {
+    // Try current season first, fall back to previous year.
+    const currentYear = new Date().getFullYear();
+    for (const season of [currentYear, currentYear - 1]) {
       const res = await fetch(
         `${AF_BASE}/players?id=${id}&season=${season}`,
         {
@@ -431,18 +432,13 @@ export default async function PlayerPage({ params }: { params: { id: string } })
     return <BzzoiroProfile player={player} />;
   }
 
-  // Numeric ID: try API-Football first, then Bzzoiro fallback
+  // Numeric ID: try API-Football only. Never fall through to Bzzoiro —
+  // API-Football and Bzzoiro use different ID namespaces, so passing the
+  // same number to Bzzoiro would render a different person entirely.
+  // (Bzzoiro players are only reachable via /player/bz-<id>.)
   if (/^\d+$/.test(rawId)) {
     const af = await getApiFootballPlayer(rawId);
     if (af) return <AfProfile player={af} />;
-
-    try {
-      const bz = await getBzzoiroPlayer(rawId);
-      if (bz) return <BzzoiroProfile player={bz} />;
-    } catch {
-      /* ignore */
-    }
-
     return <NotFound />;
   }
 

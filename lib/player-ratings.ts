@@ -15,6 +15,7 @@ export interface RatingInput {
     type: string;
     player: string;
     assist?: string | null;
+    detail?: string | null;
     team: 'home' | 'away';
   }[];
   homeScore: number;
@@ -96,6 +97,11 @@ export function computeIncidentRatings(input: RatingInput): BasicRating[] {
   for (const ev of events) {
     const t = ev.team;
     if (ev.type === 'goal') {
+      // Own goals are reported as type 'goal' with detail 'Own Goal'.
+      // They should NOT credit the scorer (and, arguably, should be
+      // attributed to the opposing team — that's a separate fix).
+      const d = (ev.detail ?? '').toLowerCase();
+      if (d.includes('own goal') || d === 'own_goal') continue;
       const pid = findPlayerId(lineups, t, ev.player);
       if (pid != null) ensure(pid).lines.push({ label: 'Goal', delta: 1.0 });
       if (ev.assist) {
