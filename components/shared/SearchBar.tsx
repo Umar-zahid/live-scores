@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 type PlayerResult = {
-  id: number;
+  id: string;
   name: string;
   photo: string;
   age: number;

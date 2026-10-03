@@ -1,376 +1,207 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { getPlayerProfile } from '@/lib/football-api';
+import { getBzzoiroPlayer } from '@/lib/sources/bzzoiro';
 
-type StatRow = {
-  season: string;
-  team: string;
-  league: string;
-  apps: number;
-  goals: number;
-  assists: number;
-  minutes: number;
-  rating: number | null;
-};
-
-function num(v: any): number {
-  const n = parseInt(String(v ?? '0'), 10);
-  return isNaN(n) ? 0 : n;
+function age(dob: string | null | undefined): number | null {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return null;
+  const now = new Date();
+  let a = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+  return a;
 }
 
-function flt(v: any): number | null {
-  if (v === '' || v == null) return null;
-  const n = parseFloat(String(v));
-  return isNaN(n) ? null : n;
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-function formatMoney(v: string | number): string {
-  const n = typeof v === 'string' ? parseInt(v, 10) : v;
-  if (!n || isNaN(n)) return '—';
-  if (n >= 1_000_000) return `€${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `€${(n / 1_000).toFixed(0)}K`;
-  return `€${n}`;
+function fmtMoney(eur: number | null | undefined): string {
+  if (eur == null) return '—';
+  if (eur >= 1_000_000) return `€${(eur / 1_000_000).toFixed(1)}M`;
+  if (eur >= 1_000) return `€${Math.round(eur / 1_000)}K`;
+  return `€${eur}`;
 }
 
-function initials(name: string): string {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase();
+function posLabel(p: string | null | undefined): string {
+  if (!p) return '—';
+  const m: Record<string, string> = { G: 'Goalkeeper', D: 'Defender', M: 'Midfielder', F: 'Forward' };
+  return m[p] ?? p;
 }
 
-function StatCard({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string | number;
-  accent?: 'primary' | 'secondary';
-}) {
-  const color =
-    accent === 'primary' ? 'text-primary' : accent === 'secondary' ? 'text-secondary' : 'text-on-surface';
+function footLabel(f: string | null | undefined): string {
+  if (!f) return '—';
+  if (f === 'L') return 'Left';
+  if (f === 'R') return 'Right';
+  if (f === 'B') return 'Both';
+  return f;
+}
+
+function NotFound() {
   return (
-    <div className="rounded-lg bg-surface-container/40 border border-surface-container-highest/30 p-3 text-center">
-      <div className={`text-lg md:text-2xl font-extrabold tabular-nums ${color}`}>{value}</div>
-      <div className="text-[10px] md:text-xs text-on-surface-variant uppercase tracking-wider mt-0.5">
-        {label}
+    <main className="min-h-screen bg-surface-container-lowest p-4">
+      <div className="mx-auto max-w-2xl">
+        <Link href="/football" className="mb-4 inline-block text-sm text-on-surface-variant hover:text-on-surface">
+          ← Back to matches
+        </Link>
+        <div className="rounded-lg bg-surface-container-low border border-surface-container-highest p-6 text-center">
+          <span className="material-symbols-outlined text-[48px] text-on-surface-variant mb-2">person_off</span>
+          <h1 className="mb-1 text-xl font-bold text-on-surface">Player not found</h1>
+          <p className="text-sm text-on-surface-variant">We couldn&apos;t find this player in our database.</p>
+        </div>
       </div>
-    </div>
-  );
-}
-
-function Section({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 p-3 sm:p-4 md:p-5 shadow-lg">
-      <div className="flex items-center gap-2 pb-3 mb-3 border-b border-surface-container-highest/40">
-        <span className="material-symbols-outlined text-[18px] text-primary">{icon}</span>
-        <h2 className="text-sm md:text-base font-extrabold uppercase tracking-tight text-on-surface">
-          {title}
-        </h2>
-      </div>
-      {children}
-    </section>
+    </main>
   );
 }
 
 export default async function PlayerPage({ params }: { params: { id: string } }) {
-  const player = await getPlayerProfile(params.id);
-  if (!player) notFound();
+  const rawId = params.id;
+  const numericId = rawId.startsWith('bz-') ? rawId.slice(3) : rawId;
 
-  const name = player.name ?? player.commonname ?? 'Unknown Player';
-  const position = player.position ?? '—';
-  const age = player.age ?? '—';
-  const nationality = player.nationality ?? '—';
-  const height = player.height ? `${player.height} cm` : '—';
-  const foot = player.preferredFoot ?? '—';
-  const marketValue = formatMoney(player.marketvalue);
+  if (!/^\d+$/.test(numericId)) return <NotFound />;
 
-  const rows: StatRow[] = (player.statistics ?? []).map((s: any) => ({
-    season: s.season ?? '—',
-    team: s.name ?? '—',
-    league: s.league ?? '—',
-    apps: num(s.appearences),
-    goals: num(s.goals),
-    assists: num(s.assists),
-    minutes: num(s.minutes),
-    rating: flt(s.rating),
-  }));
-
-  const totalApps = rows.reduce((a, r) => a + r.apps, 0);
-  const totalGoals = rows.reduce((a, r) => a + r.goals, 0);
-  const totalAssists = rows.reduce((a, r) => a + r.assists, 0);
-  const totalMinutes = rows.reduce((a, r) => a + r.minutes, 0);
-  const ratingRows = rows.filter((r) => r.rating != null);
-  const avgRating = ratingRows.length
-    ? ratingRows.reduce((a, r) => a + (r.rating ?? 0), 0) / ratingRows.length
-    : null;
-
-  const bySeason = new Map<string, StatRow[]>();
-  for (const r of rows) {
-    if (!bySeason.has(r.season)) bySeason.set(r.season, []);
-    bySeason.get(r.season)!.push(r);
+  let player = null;
+  try {
+    player = await getBzzoiroPlayer(numericId);
+  } catch (err) {
+    console.error('getBzzoiroPlayer failed:', err);
   }
-  const seasons = Array.from(bySeason.keys()).sort((a, b) => b.localeCompare(a));
 
-  const transfers = player.transfers ?? [];
-  const trophies = player.trophies ?? [];
-  const sidelined = player.sidelined ?? [];
-  const facts = player.facts ?? [];
+  if (!player) return <NotFound />;
+
+  const a = age(player.date_of_birth);
+  const initial = (player.short_name || player.name || '?').slice(0, 1).toUpperCase();
+  const isAvailable = (player.availability ?? '').toLowerCase() === 'available';
 
   return (
     <div className="relative w-full overflow-hidden">
       <div className="absolute inset-0 pointer-events-none opacity-30">
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[720px] h-[340px] bg-primary-container/25 blur-[130px] rounded-full"></div>
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[720px] h-[340px] bg-primary-container/25 blur-[130px] rounded-full" />
       </div>
 
       <main className="relative z-10 w-full bg-surface-container-lowest min-h-screen">
-        <div className="max-w-5xl mx-auto w-full px-3 sm:px-4 md:px-6 py-3 md:py-6 flex flex-col gap-3 md:gap-5">
+        <div className="max-w-4xl mx-auto w-full px-3 sm:px-4 md:px-6 py-3 md:py-6 flex flex-col gap-4">
+
           <Link
             href="/football"
-            className="inline-flex items-center gap-1 self-start text-on-surface-variant hover:text-on-surface text-[11px] md:text-xs uppercase tracking-wider font-bold group"
+            className="inline-flex items-center gap-1 text-on-surface-variant hover:text-on-surface text-[11px] md:text-xs uppercase tracking-wider font-bold w-fit"
           >
-            <span className="material-symbols-outlined text-[16px] md:text-[18px] group-hover:-translate-x-1 transition-transform">
-              arrow_back
-            </span>
+            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
             Back
           </Link>
 
-          <section className="relative overflow-hidden rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 shadow-xl p-4 md:p-6">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+          {/* Hero */}
+          <section className="rounded-xl bg-surface-container-low/60 backdrop-blur-sm border border-surface-container-highest/40 shadow-xl p-4 md:p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 md:gap-5">
               <div
-                className="shrink-0 rounded-full flex items-center justify-center font-black text-2xl md:text-3xl"
+                className="shrink-0 flex items-center justify-center font-black text-primary"
                 style={{
-                  width: 96,
-                  height: 96,
-                  background: '#191f31',
-                  border: '3px solid #4be277',
-                  color: '#4be277',
-                  boxShadow: '0 0 0 6px rgba(75,226,119,0.1)',
+                  width: 84, height: 84, borderRadius: '50%',
+                  background: 'rgba(75,226,119,0.12)',
+                  border: '2px solid rgba(75,226,119,0.35)',
+                  fontSize: 36,
                 }}
               >
-                {initials(name)}
+                {initial}
               </div>
-              <div className="flex-1 min-w-0 text-center sm:text-left">
-                <h1 className="text-xl md:text-3xl font-black tracking-tight text-on-surface break-words">
-                  {name}
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl md:text-3xl font-extrabold text-on-surface tracking-tight break-words">
+                  {player.name}
                 </h1>
-                {player.commonname && player.commonname !== name && (
-                  <p className="text-xs md:text-sm text-on-surface-variant">{player.commonname}</p>
-                )}
-                <div className="mt-2 flex flex-wrap items-center justify-center sm:justify-start gap-1.5">
-                  <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] md:text-xs font-bold uppercase tracking-wider">
-                    {position}
+                <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/15 border border-primary/30 text-primary text-[10px] md:text-xs font-bold uppercase tracking-wider">
+                    {posLabel(player.position)}
+                    {player.specific_position && player.specific_position !== player.position
+                      ? ` · ${player.specific_position}` : ''}
                   </span>
-                  <span className="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[10px] md:text-xs font-bold uppercase tracking-wider">
-                    {nationality}
-                  </span>
-                  {age !== '—' && (
-                    <span className="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[10px] md:text-xs font-bold uppercase tracking-wider">
-                      Age {age}
+                  {player.jersey_number != null && (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-secondary/15 border border-secondary/30 text-secondary text-[10px] md:text-xs font-bold uppercase tracking-wider">
+                      #{player.jersey_number}
                     </span>
                   )}
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider border ${
+                      isAvailable
+                        ? 'bg-primary/10 border-primary/30 text-primary'
+                        : 'bg-error-container/30 border-error/30 text-error'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${isAvailable ? 'bg-primary' : 'bg-error'}`} />
+                    {isAvailable ? 'Available' : (player.injury_type || 'Unavailable')}
+                  </span>
                 </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mt-4 pt-4 border-t border-surface-container-highest/30">
-              <div className="text-center sm:text-left">
-                <div className="text-[10px] text-on-surface-variant uppercase tracking-wider">Market Value</div>
-                <div className="text-sm md:text-base font-bold text-primary">{marketValue}</div>
-              </div>
-              <div className="text-center sm:text-left">
-                <div className="text-[10px] text-on-surface-variant uppercase tracking-wider">Height</div>
-                <div className="text-sm md:text-base font-bold text-on-surface">{height}</div>
-              </div>
-              <div className="text-center sm:text-left">
-                <div className="text-[10px] text-on-surface-variant uppercase tracking-wider">Preferred Foot</div>
-                <div className="text-sm md:text-base font-bold text-on-surface">{foot}</div>
-              </div>
-              <div className="text-center sm:text-left">
-                <div className="text-[10px] text-on-surface-variant uppercase tracking-wider">Birthplace</div>
-                <div className="text-sm md:text-base font-bold text-on-surface truncate">
-                  {player.birthplace ?? '—'}
-                </div>
+                {(player.nationality || a != null) && (
+                  <p className="text-[11px] md:text-sm text-on-surface-variant mt-1.5">
+                    {player.nationality}{player.nationality && a != null ? ' · ' : ''}{a != null ? `${a} years old` : ''}
+                  </p>
+                )}
               </div>
             </div>
           </section>
 
-          <Section title="Career Totals" icon="leaderboard">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
-              <StatCard label="Appearances" value={totalApps} />
-              <StatCard label="Goals" value={totalGoals} accent="primary" />
-              <StatCard label="Assists" value={totalAssists} accent="secondary" />
-              <StatCard label="Minutes" value={totalMinutes} />
-              <StatCard label="Avg Rating" value={avgRating ? avgRating.toFixed(2) : '—'} />
+          {/* Quick facts */}
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-2.5 md:gap-3">
+            {[
+              ['Market Value', fmtMoney(player.market_value_eur)],
+              ['Jersey', player.jersey_number != null ? `#${player.jersey_number}` : '—'],
+              ['Foot', footLabel(player.preferred_foot)],
+              ['Height', player.height_cm != null ? `${player.height_cm} cm` : '—'],
+            ].map(([label, val]) => (
+              <div key={label} className="rounded-xl bg-surface-container-low/60 border border-surface-container-highest/40 p-3 md:p-4">
+                <div className="text-[10px] md:text-[11px] text-on-surface-variant uppercase tracking-wider font-bold mb-1">{label}</div>
+                <div className="text-base md:text-2xl font-extrabold text-primary tabular-nums">{val}</div>
+              </div>
+            ))}
+          </section>
+
+          {/* Teams */}
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+            <div className="rounded-xl bg-surface-container-low/60 border border-surface-container-highest/40 p-4 md:p-5">
+              <div className="flex items-center gap-2 mb-2 text-[11px] md:text-xs uppercase tracking-widest text-on-surface-variant font-bold">
+                <span className="material-symbols-outlined text-[16px] text-primary">stadium</span>
+                Current Club
+              </div>
+              <div className="text-lg md:text-xl font-extrabold text-on-surface">
+                {player.current_team?.name ?? '—'}
+              </div>
             </div>
-          </Section>
-
-          {seasons.length > 0 && (
-            <Section title="Season Stats" icon="calendar_month">
-              <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
-                <table className="w-full text-left text-[11px] md:text-sm">
-                  <thead>
-                    <tr className="text-on-surface-variant text-[10px] uppercase tracking-wider">
-                      <th className="py-1.5 pr-2 font-bold">Season</th>
-                      <th className="py-1.5 px-1 font-bold">Team</th>
-                      <th className="py-1.5 px-1 font-bold text-center">Apps</th>
-                      <th className="py-1.5 px-1 font-bold text-center">G</th>
-                      <th className="py-1.5 px-1 font-bold text-center">A</th>
-                      <th className="py-1.5 px-1 font-bold text-center">Min</th>
-                      <th className="py-1.5 px-1 font-bold text-center">Rating</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {seasons.flatMap((season) =>
-                      bySeason.get(season)!.map((r, i) => (
-                        <tr key={`${season}-${i}`} className="border-t border-surface-container-highest/20">
-                          <td className="py-2 pr-2 text-on-surface-variant tabular-nums whitespace-nowrap">
-                            {i === 0 ? season : ''}
-                          </td>
-                          <td className="py-2 px-1 text-on-surface truncate max-w-[140px]">{r.team}</td>
-                          <td className="py-2 px-1 text-center tabular-nums text-on-surface-variant">{r.apps}</td>
-                          <td className="py-2 px-1 text-center tabular-nums text-primary font-bold">{r.goals || ''}</td>
-                          <td className="py-2 px-1 text-center tabular-nums text-secondary">{r.assists || ''}</td>
-                          <td className="py-2 px-1 text-center tabular-nums text-on-surface-variant">{r.minutes || ''}</td>
-                          <td className="py-2 px-1 text-center">
-                            {r.rating ? (
-                              <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                  r.rating >= 7.5
-                                    ? 'bg-primary/20 text-primary'
-                                    : r.rating >= 6.5
-                                    ? 'bg-surface-container text-on-surface'
-                                    : 'bg-error/15 text-error'
-                                }`}
-                              >
-                                {r.rating.toFixed(2)}
-                              </span>
-                            ) : (
-                              <span className="text-outline">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+            <div className="rounded-xl bg-surface-container-low/60 border border-surface-container-highest/40 p-4 md:p-5">
+              <div className="flex items-center gap-2 mb-2 text-[11px] md:text-xs uppercase tracking-widest text-on-surface-variant font-bold">
+                <span className="material-symbols-outlined text-[16px] text-secondary">public</span>
+                National Team
               </div>
-            </Section>
-          )}
-
-          {trophies.length > 0 && (
-            <Section title={`Trophies · ${trophies.length}`} icon="emoji_events">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {trophies.map((t: any, i: number) => (
-                  <div
-                    key={i}
-                    className="rounded-lg bg-surface-container/40 border border-surface-container-highest/30 p-2.5 flex items-center gap-3"
-                  >
-                    <span
-                      className="material-symbols-outlined text-[20px]"
-                      style={{ color: t.rank === 1 ? '#facc15' : '#bccbb9' }}
-                    >
-                      {t.rank === 1 ? 'emoji_events' : 'military_tech'}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[12px] md:text-sm font-bold text-on-surface truncate">
-                        {t.league}
-                      </div>
-                      <div className="text-[10px] md:text-xs text-on-surface-variant">
-                        {t.count}× · {t.country}
-                      </div>
-                    </div>
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                        t.rank === 1 ? 'bg-primary/15 text-primary' : 'bg-surface-container text-on-surface-variant'
-                      }`}
-                    >
-                      {t.rank === 1 ? 'Won' : `${t.rank}nd`}
-                    </span>
-                  </div>
-                ))}
+              <div className="text-lg md:text-xl font-extrabold text-on-surface">
+                {player.national_team?.name ?? '—'}
               </div>
-            </Section>
-          )}
+            </div>
+          </section>
 
-          {transfers.length > 0 && (
-            <Section title="Transfers" icon="swap_horiz">
-              <div className="flex flex-col gap-2">
-                {transfers.map((t: any, i: number) => (
-                  <div
-                    key={i}
-                    className="rounded-lg bg-surface-container/40 border border-surface-container-highest/30 p-2.5 flex items-center gap-2 text-[12px] md:text-sm"
-                  >
-                    <span className="text-on-surface-variant tabular-nums shrink-0 text-[10px] md:text-xs">
-                      {t.date}
-                    </span>
-                    <span className="text-on-surface-variant shrink-0">{t.from}</span>
-                    <span className="material-symbols-outlined text-primary text-[16px] shrink-0">
-                      arrow_forward
-                    </span>
-                    <span className="text-on-surface font-bold truncate">{t.to}</span>
-                    {t.type && (
-                      <span className="ml-auto text-[10px] uppercase tracking-wider text-on-surface-variant shrink-0">
-                        {t.type}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {sidelined.length > 0 && (
-            <Section title="Injury History" icon="healing">
-              <div className="flex flex-col gap-1.5">
-                {sidelined.slice(0, 8).map((s: any, i: number) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between gap-2 py-1.5 border-b border-surface-container-highest/20 last:border-0"
-                  >
-                    <span className="text-[12px] md:text-sm text-on-surface truncate">{s.type}</span>
-                    <span className="text-[10px] md:text-xs text-on-surface-variant tabular-nums shrink-0">
-                      {s.date_start} → {s.date_end}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {(player.about || facts.length > 0) && (
-            <Section title="Biography" icon="auto_stories">
-              {player.about && (
-                <p className="text-[12px] md:text-sm text-on-surface-variant leading-relaxed mb-3">
-                  {player.about}
-                </p>
-              )}
-              {facts.length > 0 && (
-                <ul className="flex flex-col gap-2">
-                  {facts.slice(0, 6).map((f: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2 text-[12px] md:text-sm text-on-surface-variant leading-snug">
-                      <span className="material-symbols-outlined text-primary text-[14px] shrink-0 mt-0.5">
-                        check_circle
-                      </span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Section>
-          )}
+          {/* Personal */}
+          <section className="rounded-xl bg-surface-container-low/60 border border-surface-container-highest/40 p-4 md:p-5">
+            <h2 className="text-[11px] md:text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-3">
+              Personal
+            </h2>
+            <dl className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-6 text-sm">
+              {[
+                ['Date of birth', `${fmtDate(player.date_of_birth)}${a != null ? ` (${a})` : ''}`],
+                ['Nationality', player.nationality || '—'],
+                ['Position', `${posLabel(player.position)}${player.specific_position && player.specific_position !== player.position ? ` (${player.specific_position})` : ''}`],
+                ['Preferred foot', footLabel(player.preferred_foot)],
+                ['Height', player.height_cm != null ? `${player.height_cm} cm` : '—'],
+                ['Weight', player.weight_kg != null ? `${player.weight_kg} kg` : '—'],
+                ['Contract until', fmtDate(player.contract_until)],
+                ['Market value', fmtMoney(player.market_value_eur)],
+              ].map(([label, val]) => (
+                <div key={label} className="flex items-center justify-between gap-4 py-1.5 border-b border-surface-container-highest/30">
+                  <dt className="text-on-surface-variant">{label}</dt>
+                  <dd className="text-on-surface font-bold text-right">{val}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         </div>
       </main>
     </div>
