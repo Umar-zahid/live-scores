@@ -197,6 +197,8 @@ export function bzzoiroIncidentsToEvents(
 
     if (inc.type === 'goal') {
       // Skip own goals and penalty-shootout noise if we ever see them
+      const gt = (inc.goal_type ?? '').toLowerCase().replace(/[^a-z]/g, '');
+      if (gt.includes('owngoal') || gt === 'og') continue;
       out.push({
         minute,
         type: 'goal',
