@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getFootballMatches } from '@/lib/football-api';
 import FootballList from '@/components/football/FootballList';
+import AutoRefresh from '@/components/shared/AutoRefresh';
 
 export default async function FootballPage() {
   const matches = await getFootballMatches();
@@ -10,6 +11,7 @@ export default async function FootballPage() {
 
   return (
     <>
+      <AutoRefresh intervalMs={30000} />
       <div className="relative w-full overflow-hidden">
         <div className="absolute inset-0 pointer-events-none opacity-30">
           <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[720px] h-[340px] bg-primary-container/25 blur-[130px] rounded-full"></div>
