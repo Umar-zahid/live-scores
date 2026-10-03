@@ -7,6 +7,7 @@ import {
   getMatchPrediction,
 } from '@/lib/football-api';
 import MatchTabs from '@/components/football/MatchTabs';
+import AutoRefresh from '@/components/shared/AutoRefresh';
 
 function TeamBadge({
   logo,
@@ -89,6 +90,7 @@ export default async function MatchDetailPage({
 
   return (
     <div className="relative w-full overflow-hidden">
+      <AutoRefresh intervalMs={20000} />
       <div className="absolute inset-0 pointer-events-none opacity-30">
         <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[720px] h-[340px] bg-primary-container/25 blur-[130px] rounded-full"></div>
       </div>
