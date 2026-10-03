@@ -1,4 +1,24 @@
 import { FootballMatch, MatchStatus } from '@/types';
+
+import teamLogosRaw from '@/data/team-logos.json';
+
+type TeamLogoEntry = { name: string; logo: string };
+const TEAM_LOGOS = teamLogosRaw as Record<string, TeamLogoEntry>;
+
+function normalizeTeamName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\b(fc|cf|ac|sc|afc|cp|sv|vfl|vfb|tsv|as|asd|ss|ssc|usl|rc|rcd|sd|fk|bk|sk|if)\b/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
+function teamLogo(name: string): string {
+  const key = normalizeTeamName(name);
+  if (!key) return '';
+  return TEAM_LOGOS[key]?.logo ?? '';
+}
 import type { TeamLineup } from '@/types';
 import {
   getBzzoiroEventStats,
@@ -234,13 +254,13 @@ function normalizeBzzoiroEvent(e: BzzoiroEvent): FootballMatch {
     homeTeam: {
       id: e.home_team_id,
       name: e.home_team,
-      logo: '',
+      logo: teamLogo(e.home_team),
       score: e.home_score ?? 0,
     },
     awayTeam: {
       id: e.away_team_id,
       name: e.away_team,
-      logo: '',
+      logo: teamLogo(e.away_team),
       score: e.away_score ?? 0,
     },
     minute: e.current_minute ?? undefined,
