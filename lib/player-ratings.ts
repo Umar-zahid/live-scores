@@ -71,8 +71,11 @@ function findPlayerId(
   }
 
   // Fallback: any player whose full name contains target as substring
-  for (const p of pool) {
-    if (clean(p.name).includes(target)) return p.id;
+  // Only run for names of at least 3 chars to avoid false positives on initials.
+  if (target.length >= 3) {
+    for (const p of pool) {
+      if (clean(p.name).includes(target)) return p.id;
+    }
   }
 
   return null;
@@ -119,11 +122,15 @@ export function computeIncidentRatings(input: RatingInput): BasicRating[] {
     const team: 'home' | 'away' = teamIdx === 0 ? 'home' : 'away';
     const teamDelta = team === 'home' ? homeDelta : awayDelta;
 
+    // Starters get the team-result modifier; unused bench does not.
+    const starters = new Set(lu.startXI.map((p) => p.id));
     const all = [...lu.startXI, ...lu.substitutes];
     for (const p of all) {
       const bucket = buckets.get(p.id);
       const lines: { label: string; delta: number }[] = bucket ? [...bucket.lines] : [];
-      if (teamDelta !== 0) {
+      const isStarter = starters.has(p.id);
+      const played = isStarter || (bucket && bucket.lines.length > 0);
+      if (teamDelta !== 0 && played) {
         lines.push({
           label: teamDelta > 0 ? 'Team won' : 'Team lost',
           delta: teamDelta,

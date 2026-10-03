@@ -1,9 +1,5 @@
 import type { TeamLineup, LineupPlayer } from '@/types';
 
-const posLabel: Record<string, string> = {
-  G: 'GK', D: 'DEF', M: 'MID', F: 'FWD',
-};
-
 function layoutStartXI(players: LineupPlayer[]): LineupPlayer[][] {
   const withGrid = players.filter((p) => p.grid);
   if (!withGrid.length) {

@@ -1,6 +1,25 @@
 import { FootballMatch, MatchStatus } from '@/types';
-
+import type { TeamLineup } from '@/types';
 import teamLogosRaw from '@/data/team-logos.json';
+import {
+  getBzzoiroEventStats,
+  getBzzoiroEventLineups,
+  getBzzoiroEventsInRange,
+  getBzzoiroLiveEvents,
+  getBzzoiroEvent,
+  getBzzoiroEventIncidents,
+  getBzzoiroPrediction,
+  type BzzoiroEvent,
+} from './sources/bzzoiro';
+import {
+  bzzoiroStatsToFixtureStats,
+  bzzoiroLineupsToTeamLineups,
+  bzzoiroIncidentsToEvents,
+} from './sources/bzzoiro-mappers';
+import { MAJOR_LEAGUE_IDS } from './sources/leagues';
+import { calculateRating, type PlayerStats, type Position } from './ratings';
+import { unstable_cache } from 'next/cache';
+import { lsmGetPlayer } from './livescore';
 
 type TeamLogoEntry = { name: string; logo: string };
 const TEAM_LOGOS = teamLogosRaw as Record<string, TeamLogoEntry>;
@@ -19,23 +38,6 @@ function teamLogo(name: string): string {
   if (!key) return '';
   return TEAM_LOGOS[key]?.logo ?? '';
 }
-import type { TeamLineup } from '@/types';
-import {
-  getBzzoiroEventStats,
-  getBzzoiroEventLineups,
-  getBzzoiroEventsInRange,
-  getBzzoiroLiveEvents,
-  getBzzoiroEvent,
-  getBzzoiroEventIncidents,
-  getBzzoiroPrediction,
-  type BzzoiroEvent,
-} from './sources/bzzoiro';
-import {
-  bzzoiroStatsToFixtureStats,
-  bzzoiroLineupsToTeamLineups,
-  bzzoiroIncidentsToEvents,
-} from './sources/bzzoiro-mappers';
-import { MAJOR_LEAGUE_IDS } from './sources/leagues';
 
 // ─── API-Football (fallback + ratings source) ─────────────────────
 
@@ -234,9 +236,9 @@ function bzzoiroStatus(e: BzzoiroEvent): MatchStatus {
     return 'live';
   }
 
-  // Fallback: if we have a positive minute value, treat as live.
-  // This catches any future status string we haven't seen yet.
-  if (typeof e.current_minute === 'number' && e.current_minute > 0) {
+  // Fallback: only trust current_minute when the raw status was empty/unknown.
+  // This prevents a stale 'live' label on finished matches with leftover minutes.
+  if (!raw && typeof e.current_minute === 'number' && e.current_minute > 0) {
     return 'live';
   }
 
@@ -344,10 +346,12 @@ export async function getFootballMatches(): Promise<FootballMatch[]> {
     return 0;
   });
 
-  const liveCount = merged.filter((m) => m.status === 'live' || m.status === 'halftime').length;
-  console.log(
-    `getFootballMatches: merged=${merged.length} (major=${majorArr.length}, live=${liveArr.length}, liveFinal=${liveCount})`
-  );
+  if (process.env.NODE_ENV === 'development') {
+    const liveCount = merged.filter((m) => m.status === 'live' || m.status === 'halftime').length;
+    console.log(
+      `getFootballMatches: merged=${merged.length} (major=${majorArr.length}, live=${liveArr.length}, liveFinal=${liveCount})`
+    );
+  }
 
   return merged;
 }
@@ -401,7 +405,7 @@ export interface MatchPrediction {
     prob_home: number;
     prob_draw: number;
     prob_away: number;
-    predicted: string; // "H" | "D" | "A"
+    predicted: 'H' | 'D' | 'A' | '';
   };
   expected_goals: { home: number; away: number };
   over_under: {
@@ -580,7 +584,6 @@ export async function getFixtureStatistics(
 }
 
 // ─── Player ratings (input: /fixtures/players from API-Football) ──
-import { calculateRating, type PlayerStats, type Position } from './ratings';
 
 export interface FixturePlayer {
   playerId: number;
@@ -731,8 +734,6 @@ export async function getFixturePlayers(
 }
 
 // ─── Player profile (from LiveScore MCP) ──────────────────────────
-import { unstable_cache } from 'next/cache';
-import { lsmGetPlayer } from './livescore';
 
 const _playerCached = unstable_cache(
   async (id: string) => await lsmGetPlayer(id),

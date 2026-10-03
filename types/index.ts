@@ -124,11 +124,3 @@ export interface TeamLineup {
   substitutes: LineupPlayer[];
   coach: LineupCoach | null;
 }
-
-export interface LineupPlayer {
-  id: number;
-  name: string;
-  number: number | null;
-  position: string;
-  grid: string | null;
-}

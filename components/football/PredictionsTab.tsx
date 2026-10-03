@@ -104,9 +104,21 @@ export default function PredictionsTab({
             {confidenceLabel} confidence · {confidencePct}%
           </span>
         </div>
-        <ProbBar label={`${homeName} win`} value={mr.prob_home} color="#4be277" />
-        <ProbBar label="Draw" value={mr.prob_draw} color="#bccbb9" />
-        <ProbBar label={`${awayName} win`} value={mr.prob_away} color="#adc6ff" />
+        <ProbBar
+          label={`${homeName} win${mr.predicted === 'H' ? ' •' : ''}`}
+          value={mr.prob_home}
+          color="#4be277"
+        />
+        <ProbBar
+          label={`Draw${mr.predicted === 'D' ? ' •' : ''}`}
+          value={mr.prob_draw}
+          color="#bccbb9"
+        />
+        <ProbBar
+          label={`${awayName} win${mr.predicted === 'A' ? ' •' : ''}`}
+          value={mr.prob_away}
+          color="#adc6ff"
+        />
       </section>
 
       {/* Score prediction + xG */}

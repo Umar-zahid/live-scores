@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import type { FootballMatch } from '@/types';
+import { MAJOR_LEAGUES } from '@/lib/sources/leagues';
 
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('en-GB', {
@@ -11,24 +12,11 @@ const formatTime = (iso: string) =>
     timeZone: 'UTC',
   });
 
-// Top-league whitelist — the competitions users actually care about first.
-const TOP_LEAGUES = new Set([
-  'Premier League',
-  'La Liga',
-  'Serie A',
-  'Bundesliga',
-  'Ligue 1',
-  'Champions League',
-  'Europa League',
-  'Conference League',
-  'UEFA Nations League',
-  'UEFA Euro 2024',
-  'World Cup 2026',
-  'WC Qualifiers · UEFA',
-  'WC Qualifiers · CONMEBOL',
-  'Copa América',
-  'Africa Cup of Nations',
-]);
+// Top-league whitelist derived from the single source of truth in lib/sources/leagues.ts.
+// Tier-1 competitions (top divisions, European cups, internationals) get the ⭐ treatment.
+const TOP_LEAGUES = new Set(
+  MAJOR_LEAGUES.filter((l) => l.tier === 1).map((l) => l.name)
+);
 
 const statusStyle = {
   live: {
