@@ -38,7 +38,11 @@ function ratioStat(v: any): string | null {
 
 const STAT_ORDER: [string, string, (v: any) => string | number | null][] = [
   ['Ball Possession', 'ball_possession', (v) => (v != null ? `${v}%` : null)],
-  ['Expected Goals (xG)', 'expected_goals', (v) => fmt2(v)],
+  ['Expected Goals (xG)', 'xg', (v) => {
+    if (!v || typeof v !== 'object') return null;
+    const n = (v as any).actual ?? (v as any).estimated;
+    return typeof n === 'number' ? n.toFixed(2) : null;
+  }],
   ['Total Shots', 'total_shots', (v) => v],
   ['Shots on Target', 'shots_on_target', (v) => v],
   ['Shots off Target', 'shots_off_target', (v) => v],

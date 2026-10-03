@@ -43,6 +43,19 @@ async function getApiFootballPlayer(id: string): Promise<AfPlayerBasic | null> {
         continue;
       }
       const data = await res.json();
+      // API-Football returns 200 with an `errors` body when the plan
+      // blocks a season — !res.ok never fires for those.
+      const bodyErrors = data?.errors;
+      const hasBodyErrors = Array.isArray(bodyErrors)
+        ? bodyErrors.length > 0
+        : bodyErrors && typeof bodyErrors === 'object' && Object.keys(bodyErrors).length > 0;
+      if (hasBodyErrors) {
+        console.warn(
+          `API-Football /players?id=${{id}}&season=${{season}} → body errors:`,
+          bodyErrors
+        );
+        continue;
+      }
       const p = data.response?.[0];
       if (!p) continue;
       const s0 = p.statistics?.[0] ?? {};

@@ -335,18 +335,20 @@ function normalizeBzzoiroEvent(e: BzzoiroEvent): FootballMatch {
 
 async function getMajorLeagueMatches(): Promise<FootballMatch[]> {
   const now = new Date();
-  // Cover: recently finished (up to 1 day ago) → live → upcoming (next 3 days)
-  const from = new Date(now.getTime() - 1 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  // Cover: recently finished (up to 7 days ago) → live → upcoming (next 3 days)
+  const from = new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
   const to = new Date(now.getTime() + 3 * 24 * 3600 * 1000).toISOString().slice(0, 10);
 
-  const results = await Promise.all(
-    MAJOR_LEAGUE_IDS.map((id) => getBzzoiroEventsInRange(from, to, id))
-  );
+  // One paginated fetch for the whole window, then filter client-side by
+  // league. The response carries league_id on every event, so 16 pages
+  // beats 64 parallel per-league requests — and won't truncate at 50.
+  const all = await getBzzoiroEventsInRange(from, to);
 
-  const all = results.flat().filter((e) => {
+  const filtered = all.filter((e) => {
     if (!e) return false;
     if (!e.event_date) return false;
     if (!e.home_team || !e.away_team) return false;
+    if (!MAJOR_LEAGUE_IDS.includes(e.league_id)) return false;
     const st = (e.status ?? '').toLowerCase().replace(/[\s-]/g, '_');
     if (
       st === 'postponed' || st === 'pst' ||
@@ -359,10 +361,7 @@ async function getMajorLeagueMatches(): Promise<FootballMatch[]> {
   // Deduplicate by (homeId, awayId, kickoffHour)
   const seen = new Set<string>();
   const deduped: BzzoiroEvent[] = [];
-  for (const e of all) {
-    // A single malformed row (TBD cup fixture with null fields) must not
-    // throw — Promise.allSettled would swallow the whole batch and
-    // /football would show only the live feed.
+  for (const e of filtered) {
     const key = `${e.home_team_id ?? 'x'}-${e.away_team_id ?? 'x'}-${(e.event_date ?? '').slice(0, 13)}`;
     if (seen.has(key)) continue;
     seen.add(key);

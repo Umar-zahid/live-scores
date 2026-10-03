@@ -71,16 +71,18 @@ export default async function MatchDetailPage({
     );
   }
 
+  const liveish = match.status === 'live' || match.status === 'halftime';
   const [lineups, stats, players, prediction, visuals] = await Promise.all([
     getFixtureLineups(params.id, match.homeTeam.logo, match.awayTeam.logo),
     getFixtureStatistics(
       params.id,
       { id: match.homeTeam.id, name: match.homeTeam.name },
-      { id: match.awayTeam.id, name: match.awayTeam.name }
+      { id: match.awayTeam.id, name: match.awayTeam.name },
+      liveish
     ),
     getFixturePlayers(params.id),
     getMatchPrediction(params.id),
-    getShotmapData(params.id),
+    getShotmapData(params.id, liveish),
   ]);
 
   const isLive = match.status === 'live';

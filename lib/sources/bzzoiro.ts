@@ -254,13 +254,28 @@ export async function getBzzoiroEventsInRange(
   dateTo: string,
   leagueId?: number
 ): Promise<BzzoiroEvent[]> {
-  const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
-  if (leagueId) params.set('league', String(leagueId));
-  const data = await fetchJson<{ count: number; results: BzzoiroEvent[] }>(
-    `/events/?${params}`,
-    60
-  );
-  return data?.results ?? [];
+  const all: BzzoiroEvent[] = [];
+  const MAX_PAGES = 40;
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      date_from: dateFrom,
+      date_to: dateTo,
+      page: String(page),
+    });
+    if (leagueId) params.set('league', String(leagueId));
+
+    const data = await fetchJson<{ count: number; results: BzzoiroEvent[] }>(
+      `/events/?${params}`,
+      60
+    );
+    if (!data?.results || data.results.length === 0) break;
+    all.push(...data.results);
+    if (all.length >= (data.count ?? 0)) break;
+    if (data.results.length < 50) break;
+  }
+
+  return all;
 }
 
 export async function getBzzoiroEventStats(
