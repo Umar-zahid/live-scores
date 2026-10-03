@@ -7,6 +7,7 @@ import {
   getBzzoiroLiveEvents,
   getBzzoiroEvent,
   getBzzoiroEventIncidents,
+  getBzzoiroPrediction,
   type BzzoiroEvent,
 } from './sources/bzzoiro';
 import {
@@ -369,6 +370,72 @@ export async function getFootballMatchById(
     return normalizeMatch(data.response[0]);
   } catch (err) {
     console.error('getFootballMatchById failed:', err);
+    return null;
+  }
+}
+
+// ─── Match prediction (Bzzoiro CatBoost ML) ───────────────────────
+export interface MatchPrediction {
+  event_id: number;
+  match_result: {
+    prob_home: number;
+    prob_draw: number;
+    prob_away: number;
+    predicted: string; // "H" | "D" | "A"
+  };
+  expected_goals: { home: number; away: number };
+  over_under: {
+    prob_over_15: number;
+    prob_over_25: number;
+    prob_over_35: number;
+  };
+  btts: { prob_yes: number };
+  score: { most_likely: string };
+  corners?: {
+    prob_over_85?: number;
+    prob_over_95?: number;
+    prob_over_105?: number;
+  };
+  model: { confidence: number; version: string };
+}
+
+export async function getMatchPrediction(
+  fixtureId: string
+): Promise<MatchPrediction | null> {
+  // Predictions only come from Bzzoiro, so only attempt for bz- IDs.
+  if (!fixtureId.startsWith('bz-')) return null;
+  const numericId = fixtureId.slice(3);
+  try {
+    const raw = await getBzzoiroPrediction(numericId);
+    if (!raw || !raw.markets) return null;
+    const m = raw.markets;
+    return {
+      event_id: raw.event?.id ?? Number(numericId),
+      match_result: {
+        prob_home: m.match_result?.prob_home ?? 0,
+        prob_draw: m.match_result?.prob_draw ?? 0,
+        prob_away: m.match_result?.prob_away ?? 0,
+        predicted: m.match_result?.predicted ?? '',
+      },
+      expected_goals: {
+        home: m.expected_goals?.home ?? 0,
+        away: m.expected_goals?.away ?? 0,
+      },
+      over_under: {
+        prob_over_15: m.over_under?.prob_over_15 ?? 0,
+        prob_over_25: m.over_under?.prob_over_25 ?? 0,
+        prob_over_35: m.over_under?.prob_over_35 ?? 0,
+      },
+      btts: { prob_yes: m.btts?.prob_yes ?? 0 },
+      score: { most_likely: m.score?.most_likely ?? '' },
+      corners: m.corners ?? undefined,
+      model: {
+        confidence: raw.model?.confidence ?? 0,
+        version: raw.model?.version ?? '',
+      },
+    };
+  } catch (err) {
+    console.error('getMatchPrediction failed:', err);
     return null;
   }
 }

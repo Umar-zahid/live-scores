@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import type { FootballMatch, TeamLineup } from '@/types';
-import type { FixtureStats, FixturePlayer } from '@/lib/football-api';
+import type { FixtureStats, FixturePlayer, MatchPrediction } from '@/lib/football-api';
 import Lineups from './Lineups';
 import PlayerRatings from './PlayerRatings';
+import PredictionsTab from './PredictionsTab';
 
 const eventTypeLabel: Record<string, string> = {
   goal: 'Goal',
@@ -273,18 +274,20 @@ function StatsTab({
   );
 }
 
-type TabId = 'overview' | 'lineups' | 'stats' | 'ratings';
+type TabId = 'overview' | 'lineups' | 'stats' | 'ratings' | 'predictions';
 
 export default function MatchTabs({
   match,
   lineups,
   stats,
   players,
+  prediction,
 }: {
   match: FootballMatch;
   lineups: TeamLineup[];
   stats: FixtureStats[];
   players: FixturePlayer[];
+  prediction: MatchPrediction | null;
 }) {
   const [tab, setTab] = useState<TabId>('overview');
 
@@ -293,6 +296,7 @@ export default function MatchTabs({
     { id: 'lineups', label: 'Lineups', icon: 'groups' },
     { id: 'stats', label: 'Statistics', icon: 'bar_chart' },
     { id: 'ratings', label: 'Ratings', icon: 'grade' },
+    { id: 'predictions', label: 'Predictions', icon: 'query_stats' },
   ];
 
   return (
@@ -346,6 +350,13 @@ export default function MatchTabs({
           />
         )}
         {tab === 'ratings' && <PlayerRatings players={players} />}
+        {tab === 'predictions' && (
+          <PredictionsTab
+            prediction={prediction}
+            homeName={match.homeTeam.name}
+            awayName={match.awayTeam.name}
+          />
+        )}
       </div>
     </section>
   );
