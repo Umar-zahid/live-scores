@@ -18,6 +18,21 @@ const TOP_LEAGUES = new Set(
   MAJOR_LEAGUES.filter((l) => l.tier === 1).map((l) => l.name)
 );
 
+// Explicit display order for the biggest competitions. Matches in these
+// leagues float to the top of every section (Live / Upcoming / Finished);
+// everything else falls below in time order.
+const LEAGUE_PRIORITY = new Map<string, number>([
+  ['Premier League', 0],
+  ['La Liga', 1],
+  ['Serie A', 2],
+  ['Bundesliga', 3],
+  ['Ligue 1', 4],
+]);
+
+function leaguePriority(m: FootballMatch): number {
+  return LEAGUE_PRIORITY.get(m.league) ?? 999;
+}
+
 const statusStyle = {
   live: {
     bar: 'bg-primary shadow-[0_0_8px_rgba(75,226,119,0.7)]',
@@ -270,21 +285,36 @@ export default function FootballList({ matches }: { matches: FootballMatch[] }) 
     () =>
       scoped
         .filter((m) => m.status === 'live' || m.status === 'halftime')
-        .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
+        .sort((a, b) => {
+          const pa = leaguePriority(a);
+          const pb = leaguePriority(b);
+          if (pa !== pb) return pa - pb;
+          return +new Date(a.startTime) - +new Date(b.startTime);
+        }),
     [scoped]
   );
   const upcomingMatches = useMemo(
     () =>
       scoped
         .filter((m) => m.status === 'upcoming')
-        .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
+        .sort((a, b) => {
+          const pa = leaguePriority(a);
+          const pb = leaguePriority(b);
+          if (pa !== pb) return pa - pb;
+          return +new Date(a.startTime) - +new Date(b.startTime);
+        }),
     [scoped]
   );
   const finishedMatches = useMemo(
     () =>
       scoped
         .filter((m) => m.status === 'finished')
-        .sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime)),
+        .sort((a, b) => {
+          const pa = leaguePriority(a);
+          const pb = leaguePriority(b);
+          if (pa !== pb) return pa - pb;
+          return +new Date(b.startTime) - +new Date(a.startTime);
+        }),
     [scoped]
   );
 
