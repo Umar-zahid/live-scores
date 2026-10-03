@@ -21,9 +21,14 @@ interface AfPlayerBasic {
 async function getApiFootballPlayer(id: string): Promise<AfPlayerBasic | null> {
   if (!AF_KEY) return null;
   try {
-    // Try current season first, fall back to previous year.
-    const currentYear = new Date().getFullYear();
-    for (const season of [currentYear, currentYear - 1]) {
+    // European season runs Aug-May. In Jan-Jul we're still in the
+    // season that started the previous calendar year.
+    const now = new Date();
+    const year = now.getFullYear();
+    const currentSeason = now.getMonth() >= 6 ? year : year - 1;
+    // 2024 is last-resort fallback if the plan caps recent seasons.
+    const seasons = Array.from(new Set([currentSeason, currentSeason - 1, 2024]));
+    for (const season of seasons) {
       const res = await fetch(
         `${AF_BASE}/players?id=${id}&season=${season}`,
         {
@@ -31,7 +36,12 @@ async function getApiFootballPlayer(id: string): Promise<AfPlayerBasic | null> {
           next: { revalidate: 3600 },
         }
       );
-      if (!res.ok) continue;
+      if (!res.ok) {
+        console.warn(
+          `API-Football /players?id=${id}&season=${season} → ${res.status}`
+        );
+        continue;
+      }
       const data = await res.json();
       const p = data.response?.[0];
       if (!p) continue;

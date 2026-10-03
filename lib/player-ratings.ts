@@ -97,11 +97,10 @@ export function computeIncidentRatings(input: RatingInput): BasicRating[] {
   for (const ev of events) {
     const t = ev.team;
     if (ev.type === 'goal') {
-      // Own goals are reported as type 'goal' with detail 'Own Goal'.
-      // They should NOT credit the scorer (and, arguably, should be
-      // attributed to the opposing team — that's a separate fix).
-      const d = (ev.detail ?? '').toLowerCase();
-      if (d.includes('own goal') || d === 'own_goal') continue;
+      // Own goals can arrive as 'Own Goal', 'own_goal', 'OG', etc.
+      // Normalize by stripping non-letters and checking canonical forms.
+      const d = (ev.detail ?? '').toLowerCase().replace(/[^a-z]/g, '');
+      if (d === 'owngoal' || d === 'og') continue;
       const pid = findPlayerId(lineups, t, ev.player);
       if (pid != null) ensure(pid).lines.push({ label: 'Goal', delta: 1.0 });
       if (ev.assist) {

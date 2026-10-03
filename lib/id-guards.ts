@@ -12,10 +12,3 @@ export function isValidMatchId(id: string | null | undefined): boolean {
 export function isValidTeamId(id: string | null | undefined): boolean {
   return /^\d+$/.test(id ?? '');
 }
-
-export function isValidPlayerId(id: string | null | undefined): boolean {
-  if (!id) return false;
-  if (/^\d+$/.test(id)) return true;      // API-Football numeric player ID
-  if (/^bz-\d+$/.test(id)) return true;    // Bzzoiro player ID
-  return false;
-}

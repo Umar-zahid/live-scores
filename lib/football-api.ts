@@ -129,14 +129,16 @@ function mapEventType(type: string, detail: string): string {
 
 function normalizeMatch(raw: ApiFixture): FootballMatch {
   const homeId = raw.teams.home.id;
-  const events = (raw.events || []).map((e) => ({
-    minute: e.time.elapsed ?? 0,
-    type: mapEventType(e.type, e.detail),
-    player: e.player.name ?? 'Unknown',
-    assist: e.assist?.name ?? null,
-    detail: e.detail,
-    team: e.team.id === homeId ? ('home' as const) : ('away' as const),
-  }));
+  const events = (raw.events || [])
+    .map((e) => ({
+      minute: e.time.elapsed ?? 0,
+      type: mapEventType(e.type, e.detail),
+      player: e.player.name ?? 'Unknown',
+      assist: e.assist?.name ?? null,
+      detail: e.detail,
+      team: e.team.id === homeId ? ('home' as const) : ('away' as const),
+    }))
+    .filter((ev) => ev.type && ev.type !== 'other');
 
   const venueParts = [raw.fixture.venue?.name, raw.fixture.venue?.city].filter(Boolean);
 
@@ -212,9 +214,6 @@ function bzzoiroStatus(e: BzzoiroEvent): MatchStatus {
     raw === 'aet' ||
     raw === 'after_extra_time' ||
     raw === 'pen' ||
-    raw === 'penalties' ||
-    raw === 'penalty_shootout' ||
-    raw === 'shootout' ||
     raw === 'after_penalties' ||
     raw === 'after_penalty_shootout' ||
     period === 'ft' ||
@@ -235,6 +234,41 @@ function bzzoiroStatus(e: BzzoiroEvent): MatchStatus {
     raw === 'tbd'
   ) {
     return 'upcoming';
+  }
+
+  // Postponed / cancelled / abandoned / suspended / interrupted /
+  // awarded / walkover — no live score will appear. Left in Upcoming
+  // they'd sit there forever with a "—" score.
+  if (
+    raw === 'postponed' ||
+    raw === 'pst' ||
+    raw === 'cancelled' ||
+    raw === 'canceled' ||
+    raw === 'canc' ||
+    raw === 'suspended' ||
+    raw === 'susp' ||
+    raw === 'abandoned' ||
+    raw === 'abd' ||
+    raw === 'interrupted' ||
+    raw === 'int' ||
+    raw === 'awarded' ||
+    raw === 'awd' ||
+    raw === 'walkover' ||
+    raw === 'wo'
+  ) {
+    return 'finished';
+  }
+
+  // Penalty shootout: status string alone can mean in-progress OR
+  // just-finished. Use kickoff time to decide.
+  if (
+    raw === 'penalties' ||
+    raw === 'penalty_shootout' ||
+    raw === 'shootout'
+  ) {
+    const kickoff = e.event_date ? new Date(e.event_date).getTime() : 0;
+    const mins = kickoff > 0 ? (Date.now() - kickoff) / 60000 : 0;
+    return mins > 0 && mins < 200 ? 'live' : 'finished';
   }
 
   // Live detection: any in-progress keyword OR a period marker
@@ -276,16 +310,16 @@ function normalizeBzzoiroEvent(e: BzzoiroEvent): FootballMatch {
     status: bzzoiroStatus(e),
     league: e.league_name ?? 'Unknown league',
     leagueCountry: '',
-    startTime: e.event_date ?? new Date().toISOString(),
+    startTime: e.event_date ?? '',
     homeTeam: {
       id: e.home_team_id,
-      name: e.home_team,
+      name: e.home_team ?? 'TBD',
       logo: teamLogo(e.home_team),
       score: e.home_score ?? 0,
     },
     awayTeam: {
       id: e.away_team_id,
-      name: e.away_team,
+      name: e.away_team ?? 'TBD',
       logo: teamLogo(e.away_team),
       score: e.away_score ?? 0,
     },
@@ -304,7 +338,12 @@ async function getMajorLeagueMatches(): Promise<FootballMatch[]> {
     MAJOR_LEAGUE_IDS.map((id) => getBzzoiroEventsInRange(from, to, id))
   );
 
-  const all = results.flat();
+  const all = results.flat().filter((e) => {
+    if (!e) return false;
+    if (!e.event_date) return false;
+    if (!e.home_team || !e.away_team) return false;
+    return true;
+  });
 
   // Deduplicate by (homeId, awayId, kickoffHour)
   const seen = new Set<string>();
@@ -329,7 +368,11 @@ export async function getFootballMatches(): Promise<FootballMatch[]> {
   // AND the global live feed. Merge them so live matches always surface.
   const [majorRes, liveRes] = await Promise.allSettled([
     getMajorLeagueMatches(),
-    getBzzoiroLiveEvents().then((events) => events.map(normalizeBzzoiroEvent)),
+    getBzzoiroLiveEvents().then((events) =>
+      events
+        .filter((e) => e && e.event_date && e.home_team && e.away_team)
+        .map(normalizeBzzoiroEvent)
+    ),
   ]);
 
   const majorArr = majorRes.status === 'fulfilled' ? majorRes.value : [];
