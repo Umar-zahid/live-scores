@@ -1,5 +1,14 @@
 import Link from 'next/link';
-import { getBzzoiroPlayer, type BzzoiroPlayer } from '@/lib/sources/bzzoiro';
+import {
+  getBzzoiroPlayer,
+  getBzzoiroPlayerCareer,
+  getBzzoiroPlayerStats,
+  type BzzoiroPlayer,
+  type BzzoiroCareer,
+  type BzzoiroPlayerMatchStat,
+} from '@/lib/sources/bzzoiro';
+import CareerStats from '@/components/player/CareerStats';
+import RecentMatchRatings from '@/components/player/RecentMatchRatings';
 
 // ── API-Football basic player lookup (for team-squad links) ─────────
 
@@ -151,7 +160,15 @@ function NotFound() {
 
 // ── Bzzoiro profile (rich) ─────────────────────────────────────────
 
-function BzzoiroProfile({ player }: { player: BzzoiroPlayer }) {
+function BzzoiroProfile({
+  player,
+  career,
+  recentMatches,
+}: {
+  player: BzzoiroPlayer;
+  career: BzzoiroCareer | null;
+  recentMatches: BzzoiroPlayerMatchStat[];
+}) {
   const a = age(player.date_of_birth);
   const initial = (player.short_name || player.name || '?').slice(0, 1).toUpperCase();
   const isAvailable = (player.availability ?? '').toLowerCase() === 'available';
@@ -305,6 +322,14 @@ function BzzoiroProfile({ player }: { player: BzzoiroPlayer }) {
               ))}
             </dl>
           </section>
+
+          {career && career.seasons.length > 0 && (
+            <CareerStats career={career} />
+          )}
+
+          {recentMatches.length > 0 && (
+            <RecentMatchRatings matches={recentMatches} />
+          )}
         </div>
       </main>
     </div>
@@ -445,14 +470,26 @@ export default async function PlayerPage({ params }: { params: { id: string } })
   if (rawId.startsWith('bz-')) {
     const numericId = rawId.slice(3);
     if (!/^\d+$/.test(numericId)) return <NotFound />;
-    let player: BzzoiroPlayer | null = null;
-    try {
-      player = await getBzzoiroPlayer(numericId);
-    } catch (err) {
-      console.error('getBzzoiroPlayer failed:', err);
-    }
+
+    const [playerRes, careerRes, statsRes] = await Promise.allSettled([
+      getBzzoiroPlayer(numericId),
+      getBzzoiroPlayerCareer(numericId),
+      getBzzoiroPlayerStats(numericId, 1),
+    ]);
+
+    const player = playerRes.status === 'fulfilled' ? playerRes.value : null;
+    const career = careerRes.status === 'fulfilled' ? careerRes.value : null;
+    const recentMatches: BzzoiroPlayerMatchStat[] =
+      statsRes.status === 'fulfilled' ? statsRes.value?.results ?? [] : [];
+
     if (!player) return <NotFound />;
-    return <BzzoiroProfile player={player} />;
+    return (
+      <BzzoiroProfile
+        player={player}
+        career={career}
+        recentMatches={recentMatches}
+      />
+    );
   }
 
   // Numeric ID: try API-Football only. Never fall through to Bzzoiro —

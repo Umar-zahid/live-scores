@@ -475,3 +475,89 @@ export async function getBzzoiroLeagueTop(
     3600
   );
 }
+
+// ─── Player career / match stats / transfers (Bzzoiro v2) ────────
+// Verified live: /stats/ is paginated per-match rows, /career/ has
+// season-level aggregates, /transfers/ returns a sparse list.
+// Endpoints NOT available (all 404): /season/, /seasons/, /trophies/,
+// /honours/, /injuries/, /matches/, /events/, /achievements/.
+
+export interface BzzoiroCareerSeason {
+  season_id: number;
+  league_id: number;
+  team_id: number;
+  matches: number;
+  minutes: number;
+  goals: number;
+  assists: number;
+  avg_rating: number | null;
+}
+
+export interface BzzoiroCareer {
+  player_id: number;
+  seasons: BzzoiroCareerSeason[];
+}
+
+export interface BzzoiroPlayerMatchStat {
+  id: number;
+  player_id: number;
+  event_id: number;
+  team_id: number;
+  minutes_played: number;
+  rating: number | null;
+  goals: number;
+  goal_assist: number;
+  expected_goals: number | null;
+  expected_assists: number | null;
+  total_shots: number;
+  shots_on_target: number;
+  key_pass: number;
+  total_pass: number;
+  accurate_pass: number;
+  duel_won: number;
+  duel_lost: number;
+  total_tackle: number;
+  won_tackle: number;
+  total_clearance: number;
+  interceptions: number;
+  [key: string]: unknown;
+}
+
+export interface BzzoiroPlayerStatsPage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: BzzoiroPlayerMatchStat[];
+}
+
+export interface BzzoiroTransfer {
+  [key: string]: unknown;
+}
+
+export interface BzzoiroTransfers {
+  player_id: number;
+  count: number;
+  transfers: BzzoiroTransfer[];
+}
+
+export async function getBzzoiroPlayerCareer(
+  id: number | string
+): Promise<BzzoiroCareer | null> {
+  return await fetchJson<BzzoiroCareer>(`/players/${id}/career/`, 3600);
+}
+
+export async function getBzzoiroPlayerStats(
+  id: number | string,
+  page = 1
+): Promise<BzzoiroPlayerStatsPage | null> {
+  return await fetchJson<BzzoiroPlayerStatsPage>(
+    `/players/${id}/stats/?page=${page}`,
+    1800
+  );
+}
+
+export async function getBzzoiroPlayerTransfers(
+  id: number | string
+): Promise<BzzoiroTransfers | null> {
+  return await fetchJson<BzzoiroTransfers>(`/players/${id}/transfers/`, 3600);
+}
