@@ -85,7 +85,7 @@ export default function LeagueStandings({
                 </td>
                 <td className="py-1.5 px-1">
                   <Link
-                    href={`/team/${r.teamId}`}
+                    href={`/team/bz-${r.teamId}`}
                     className="flex items-center gap-1.5 md:gap-2 min-w-0 hover:text-primary transition-colors"
                   >
                     {r.teamLogo && (

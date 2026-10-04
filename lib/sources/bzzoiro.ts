@@ -561,3 +561,7 @@ export async function getBzzoiroPlayerTransfers(
 ): Promise<BzzoiroTransfers | null> {
   return await fetchJson<BzzoiroTransfers>(`/players/${id}/transfers/`, 3600);
 }
+
+export async function getBzzoiroTeam(id: number | string): Promise<BzzoiroTeam | null> {
+  return await fetchJson<BzzoiroTeam>(`/teams/${id}/`, 3600);
+}
