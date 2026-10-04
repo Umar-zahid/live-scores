@@ -9,6 +9,8 @@ import {
 } from '@/lib/football-api';
 import MatchTabs from '@/components/football/MatchTabs';
 import AutoRefresh from '@/components/shared/AutoRefresh';
+import MatchPreview from '@/components/football/MatchPreview';
+import { getTeamRecentForm } from '@/lib/football-api';
 
 function TeamBadge({
   logo,
@@ -72,7 +74,9 @@ export default async function MatchDetailPage({
   }
 
   const liveish = match.status === 'live' || match.status === 'halftime';
-  const [lineups, stats, players, prediction, visuals] = await Promise.all([
+  const isUpcoming = match.status === 'upcoming';
+
+  const [lineups, stats, players, prediction, visuals, homeForm, awayForm] = await Promise.all([
     getFixtureLineups(params.id, match.homeTeam.logo, match.awayTeam.logo),
     getFixtureStatistics(
       params.id,
@@ -83,11 +87,16 @@ export default async function MatchDetailPage({
     getFixturePlayers(params.id),
     getMatchPrediction(params.id),
     getShotmapData(params.id, liveish),
+    isUpcoming && match.homeTeam.id
+      ? getTeamRecentForm(match.homeTeam.id)
+      : Promise.resolve([]),
+    isUpcoming && match.awayTeam.id
+      ? getTeamRecentForm(match.awayTeam.id)
+      : Promise.resolve([]),
   ]);
 
   const isLive = match.status === 'live';
   const isFinished = match.status === 'finished';
-  const isUpcoming = match.status === 'upcoming';
   const isHalftime = match.status === 'halftime';
   const homeWon = isFinished && match.homeTeam.score > match.awayTeam.score;
   const awayWon = isFinished && match.awayTeam.score > match.homeTeam.score;
@@ -229,6 +238,16 @@ export default async function MatchDetailPage({
               </div>
             )}
           </section>
+
+          {isUpcoming && (
+            <MatchPreview
+              homeTeam={match.homeTeam.name}
+              awayTeam={match.awayTeam.name}
+              homeForm={homeForm}
+              awayForm={awayForm}
+              h2h={match.headToHead}
+            />
+          )}
 
           <MatchTabs
             match={match}

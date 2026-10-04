@@ -22,6 +22,8 @@ import { MAJOR_LEAGUE_IDS } from './sources/leagues';
 import { calculateRating, type PlayerStats, type Position } from './ratings';
 import { isValidMatchId } from './id-guards';
 import { resolveLeagueName } from './sources/league-names';
+import type { BzzoiroH2H } from './sources/bzzoiro';
+import type { HeadToHead, TeamFormMatch } from '@/types';
 import { unstable_cache } from 'next/cache';
 import { lsmGetPlayer } from './livescore';
 
@@ -42,6 +44,31 @@ function teamLogo(name: string): string {
   const key = normalizeTeamName(name);
   if (!key) return '';
   return TEAM_LOGOS[key]?.logo ?? '';
+}
+
+function mapH2H(raw: BzzoiroH2H | null | undefined): HeadToHead | null {
+  if (!raw) return null;
+  return {
+    totalMatches: raw.total_matches,
+    homeWins: raw.home_wins,
+    draws: raw.draws,
+    awayWins: raw.away_wins,
+    homeGoals: raw.home_goals,
+    awayGoals: raw.away_goals,
+    avgTotalGoals: raw.avg_total_goals,
+    homeWinRate: raw.home_win_rate,
+    awayWinRate: raw.away_win_rate,
+    recentMatches: (raw.recent_matches ?? []).map((m) => ({
+      date: m.date,
+      homeTeam: m.home,
+      awayTeam: m.away,
+      homeTeamId: m.home_team_id,
+      awayTeamId: m.away_team_id,
+      homeScore: m.home_score,
+      awayScore: m.away_score,
+      eventId: m.event_id,
+    })),
+  };
 }
 
 // ─── API-Football (fallback + ratings source) ─────────────────────
@@ -473,6 +500,8 @@ export async function getFootballMatchById(
       const e = await getBzzoiroEvent(numericId);
       if (!e) return null;
       const base = normalizeBzzoiroEvent(e);
+      // Attach head-to-head (Bzzoiro returns it on /events/{id}/)
+      base.headToHead = mapH2H(e.head_to_head);
       // Enrich with incidents (goals, cards, subs)
       try {
         const isLive = base.status === 'live' || base.status === 'halftime';
@@ -1246,4 +1275,68 @@ export async function getLeagueTopScorersWithFallback(
     }
   }
   return { rows: null, source: 'none' };
+}
+
+// ─── Team recent form (Bzzoiro) ───────────────────────────────────
+// Fetches a team's last N finished matches. Used by the match preview
+// card on upcoming fixtures. Bzzoiro rate is unlimited, so this stays
+// cheap even on the detail page (2 calls per match).
+
+export async function getTeamRecentForm(
+  teamId: number,
+  limit = 5
+): Promise<TeamFormMatch[]> {
+  const BZ_KEY = process.env.BZZOIRO_API_KEY;
+  if (!BZ_KEY || !teamId) return [];
+
+  const now = new Date();
+  const from = new Date(now.getTime() - 150 * 86400000).toISOString().slice(0, 10);
+  const to = now.toISOString().slice(0, 10);
+
+  try {
+    const res = await fetch(
+      `https://sports.bzzoiro.com/api/v2/events/?team=${teamId}&date_from=${from}&date_to=${to}`,
+      {
+        headers: { Authorization: `Token ${BZ_KEY}` },
+        next: { revalidate: 3600 },
+      }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const events: any[] = Array.isArray(data?.results) ? data.results : [];
+
+    const finished = events
+      .filter(
+        (e) =>
+          e &&
+          e.status === 'finished' &&
+          typeof e.home_score === 'number' &&
+          typeof e.away_score === 'number' &&
+          e.event_date
+      )
+      .sort(
+        (a, b) => +new Date(b.event_date) - +new Date(a.event_date)
+      )
+      .slice(0, limit);
+
+    return finished.map((e) => {
+      const isHome = e.home_team_id === teamId;
+      const gf = isHome ? e.home_score : e.away_score;
+      const ga = isHome ? e.away_score : e.home_score;
+      const result: 'W' | 'D' | 'L' =
+        gf > ga ? 'W' : gf < ga ? 'L' : 'D';
+      return {
+        id: `bz-${e.id}`,
+        date: e.event_date,
+        homeTeam: e.home_team ?? '',
+        awayTeam: e.away_team ?? '',
+        homeScore: e.home_score,
+        awayScore: e.away_score,
+        result,
+      };
+    });
+  } catch (err) {
+    console.error(`getTeamRecentForm(${teamId}) failed:`, err);
+    return [];
+  }
 }

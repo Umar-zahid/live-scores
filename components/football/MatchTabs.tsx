@@ -6,6 +6,7 @@ import type { FixtureStats, FixturePlayer, MatchPrediction } from '@/lib/footbal
 import Lineups from './Lineups';
 import PlayerRatings from './PlayerRatings';
 import PredictionsTab from './PredictionsTab';
+import HeadToHead from './HeadToHead';
 import StatisticsTab from './StatisticsTab';
 import { computeIncidentRatings, getPlayerMatchEvents, type BasicRating } from '@/lib/player-ratings';
 import type { MatchVisualData } from '@/lib/football-api';
@@ -192,7 +193,7 @@ function OverviewTab({ match }: { match: FootballMatch }) {
   );
 }
 
-type TabId = 'overview' | 'lineups' | 'stats' | 'ratings' | 'predictions';
+type TabId = 'overview' | 'lineups' | 'stats' | 'ratings' | 'predictions' | 'h2h';
 
 export default function MatchTabs({
   match,
@@ -237,6 +238,7 @@ export default function MatchTabs({
     { id: 'stats', label: 'Statistics', icon: 'bar_chart' },
     { id: 'ratings', label: 'Ratings', icon: 'grade' },
     { id: 'predictions', label: 'Predictions', icon: 'query_stats' },
+    { id: 'h2h', label: 'H2H', icon: 'compare_arrows' },
   ];
 
   return (
@@ -307,6 +309,24 @@ export default function MatchTabs({
             awayName={match.awayTeam.name}
           />
         )}
+        {tab === 'h2h' &&
+          (match.headToHead ? (
+            <HeadToHead
+              h2h={match.headToHead}
+              homeTeam={match.homeTeam.name}
+              awayTeam={match.awayTeam.name}
+              currentMatchId={match.id}
+            />
+          ) : (
+            <div className="rounded-xl bg-surface-container-low/40 border border-surface-container-highest/30 p-8 text-center">
+              <span className="material-symbols-outlined text-[40px] text-on-surface-variant mb-2">
+                compare_arrows
+              </span>
+              <p className="text-sm text-on-surface-variant">
+                No head-to-head data for this match.
+              </p>
+            </div>
+          ))}
       </div>
     </section>
   );

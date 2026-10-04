@@ -9,6 +9,40 @@ export interface FootballTeam {
   score: number;
 }
 
+export interface H2HMatch {
+  date: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeTeamId: number;
+  awayTeamId: number;
+  homeScore: number;
+  awayScore: number;
+  eventId: number;
+}
+
+export interface HeadToHead {
+  totalMatches: number;
+  homeWins: number;
+  draws: number;
+  awayWins: number;
+  homeGoals: number;
+  awayGoals: number;
+  avgTotalGoals: number;
+  homeWinRate: number;
+  awayWinRate: number;
+  recentMatches: H2HMatch[];
+}
+
+export interface TeamFormMatch {
+  id: string;
+  date: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  result: 'W' | 'D' | 'L';
+}
+
 export interface FootballMatch {
   id: string;
   sport: 'football';
@@ -31,6 +65,7 @@ export interface FootballMatch {
     detail?: string;
     team: 'home' | 'away';
   }[];
+  headToHead?: HeadToHead | null;
 }
 
 export interface CricketMatch {

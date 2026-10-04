@@ -51,6 +51,33 @@ export interface BzzoiroEvent {
   live_websocket: boolean;
   websocket_plus: boolean;
   last_updated: string;
+  head_to_head?: BzzoiroH2H | null;
+  highlights?: Record<string, any> | null;
+}
+
+export interface BzzoiroH2HMatch {
+  date: string;
+  home: string;
+  away: string;
+  home_team_id: number;
+  away_team_id: number;
+  home_score: number;
+  away_score: number;
+  score: string;
+  event_id: number;
+}
+
+export interface BzzoiroH2H {
+  total_matches: number;
+  home_wins: number;
+  draws: number;
+  away_wins: number;
+  home_goals: number;
+  away_goals: number;
+  avg_total_goals: number;
+  home_win_rate: number;
+  away_win_rate: number;
+  recent_matches: BzzoiroH2HMatch[];
 }
 
 export interface BzzoiroShotmapEntry {
